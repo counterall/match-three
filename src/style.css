@@ -1,0 +1,311 @@
+:root {
+  color-scheme: dark;
+  --bg: #07041a;
+  --panel: rgba(20, 12, 50, 0.7);
+  --line: rgba(120, 90, 255, 0.35);
+  --text: #e9e6ff;
+  --muted: #9a92c9;
+  --accent: #00f0ff;
+  --accent-2: #ff2bd6;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 43, 214, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(0, 240, 255, 0.16), transparent 45%),
+    var(--bg);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- HUD ---- */
+.hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 0 6px var(--accent), 0 0 18px var(--accent);
+}
+
+.title span {
+  margin-left: 0.3em;
+  color: var(--accent-2);
+  text-shadow: 0 0 6px var(--accent-2), 0 0 18px var(--accent-2);
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+}
+
+.stat {
+  min-width: 96px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Board ---- */
+.board-wrap {
+  position: relative;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  background-color: rgba(10, 6, 30, 0.85);
+  background-image:
+    linear-gradient(rgba(120, 90, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 90, 255, 0.12) 1px, transparent 1px);
+  background-size: 12.5% 12.5%;
+  box-shadow: 0 0 30px rgba(120, 90, 255, 0.25), inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.gem {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12.5%;
+  height: 12.5%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform var(--swap-ms) ease-in;
+  will-change: transform;
+}
+
+.gem svg {
+  display: block;
+  width: 80%;
+  height: 80%;
+  overflow: visible;
+  filter: drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 8px var(--c));
+  transition: transform 150ms ease, filter 150ms ease;
+}
+
+.gem:hover svg {
+  transform: scale(1.08);
+}
+
+.gem.selected svg {
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+.gem.hint svg {
+  animation: hint 0.9s ease-in-out infinite;
+}
+
+.gem.nope svg {
+  animation: shake var(--swap-ms) ease;
+}
+
+.gem.pop svg {
+  animation: pop var(--pop-ms) ease-out forwards;
+}
+
+.board.shuffling .gem {
+  transition-duration: calc(var(--swap-ms) * 2);
+  transition-timing-function: ease-in-out;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    filter: drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 8px var(--c));
+  }
+  to {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 16px var(--c));
+  }
+}
+
+@keyframes hint {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12%) scale(1.06);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  33% {
+    transform: translateX(-8%);
+  }
+  66% {
+    transform: translateX(8%);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.35);
+    opacity: 1;
+    filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 24px var(--c));
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+/* ---- Floating score & toast ---- */
+.float {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-weight: 800;
+  font-size: clamp(1rem, 4vw, 1.4rem);
+  color: #fff;
+  text-shadow: 0 0 4px var(--c), 0 0 12px var(--c);
+  animation: float-up 0.9s ease-out forwards;
+}
+
+@keyframes float-up {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -180%);
+  }
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  pointer-events: none;
+  padding: 10px 20px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: clamp(1rem, 4.5vw, 1.5rem);
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(7, 4, 26, 0.75);
+  border: 1px solid var(--accent-2);
+  box-shadow: 0 0 18px var(--accent-2);
+  text-shadow: 0 0 8px var(--accent-2);
+  opacity: 0;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* ---- Controls ---- */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  text-shadow: 0 0 6px var(--accent);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3), inset 0 0 10px rgba(0, 240, 255, 0.15);
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+button:hover {
+  background: rgba(0, 240, 255, 0.1);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.6), inset 0 0 12px rgba(0, 240, 255, 0.25);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+}
+
+#new-game {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  text-shadow: 0 0 6px var(--accent-2);
+  box-shadow: 0 0 10px rgba(255, 43, 214, 0.3), inset 0 0 10px rgba(255, 43, 214, 0.15);
+}
+
+#new-game:hover {
+  background: rgba(255, 43, 214, 0.1);
+  box-shadow: 0 0 18px rgba(255, 43, 214, 0.6), inset 0 0 12px rgba(255, 43, 214, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gem.selected svg,
+  .gem.hint svg {
+    animation: none;
+    filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 14px var(--c));
+  }
+}
