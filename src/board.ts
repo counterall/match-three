@@ -1,6 +1,7 @@
 // Pure game logic for the match-3 board. No DOM access here, so it can be unit tested.
 
-export const SIZE = 8;
+export const DEFAULT_ROWS = 8;
+export const DEFAULT_COLS = 8;
 export const GEM_TYPES = 7;
 
 export interface Gem {
@@ -15,6 +16,9 @@ export interface Pos {
 
 /** grid[row][col]; null only appears transiently between clearing and refilling. */
 export type Grid = (Gem | null)[][];
+
+export const rowsOf = (grid: Grid): number => grid.length;
+export const colsOf = (grid: Grid): number => grid[0]?.length ?? 0;
 
 export type Rng = () => number;
 
@@ -45,11 +49,13 @@ export function swap(grid: Grid, a: Pos, b: Pos): void {
 export function findRuns(grid: Grid): Pos[][] {
   const runs: Pos[][] = [];
   const typeAt = (r: number, c: number) => grid[r][c]?.type ?? -1;
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
 
-  for (let r = 0; r < SIZE; r++) {
+  for (let r = 0; r < rows; r++) {
     let start = 0;
-    for (let c = 1; c <= SIZE; c++) {
-      if (c < SIZE && typeAt(r, c) === typeAt(r, start) && typeAt(r, c) !== -1) continue;
+    for (let c = 1; c <= cols; c++) {
+      if (c < cols && typeAt(r, c) === typeAt(r, start) && typeAt(r, c) !== -1) continue;
       if (c - start >= 3 && typeAt(r, start) !== -1) {
         runs.push(Array.from({ length: c - start }, (_, i) => ({ row: r, col: start + i })));
       }
@@ -57,10 +63,10 @@ export function findRuns(grid: Grid): Pos[][] {
     }
   }
 
-  for (let c = 0; c < SIZE; c++) {
+  for (let c = 0; c < cols; c++) {
     let start = 0;
-    for (let r = 1; r <= SIZE; r++) {
-      if (r < SIZE && typeAt(r, c) === typeAt(start, c) && typeAt(r, c) !== -1) continue;
+    for (let r = 1; r <= rows; r++) {
+      if (r < rows && typeAt(r, c) === typeAt(start, c) && typeAt(r, c) !== -1) continue;
       if (r - start >= 3 && typeAt(start, c) !== -1) {
         runs.push(Array.from({ length: r - start }, (_, i) => ({ row: start + i, col: c })));
       }
@@ -95,9 +101,9 @@ export function clearCells(grid: Grid, cells: Pos[]): void {
  */
 export function collapse(grid: Grid, rng: Rng): Spawn[] {
   const spawns: Spawn[] = [];
-  for (let c = 0; c < SIZE; c++) {
-    let write = SIZE - 1;
-    for (let r = SIZE - 1; r >= 0; r--) {
+  for (let c = 0; c < colsOf(grid); c++) {
+    let write = rowsOf(grid) - 1;
+    for (let r = write; r >= 0; r--) {
       const gem = grid[r][c];
       if (gem) {
         grid[r][c] = null;
@@ -117,11 +123,13 @@ export function collapse(grid: Grid, rng: Rng): Spawn[] {
 
 /** Finds a swap that would create a match, or null when the board is stuck. */
 export function findMove(grid: Grid): [Pos, Pos] | null {
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const a = { row: r, col: c };
       for (const b of [{ row: r, col: c + 1 }, { row: r + 1, col: c }]) {
-        if (b.row >= SIZE || b.col >= SIZE) continue;
+        if (b.row >= rows || b.col >= cols) continue;
         swap(grid, a, b);
         const ok = findRuns(grid).length > 0;
         swap(grid, a, b);
@@ -132,14 +140,18 @@ export function findMove(grid: Grid): [Pos, Pos] | null {
   return null;
 }
 
-/** A fresh board with no ready-made matches and at least one valid move. */
-export function createBoard(rng: Rng = Math.random): Grid {
+/** A fresh rows x cols board with no ready-made matches and at least one valid move. */
+export function createBoard(
+  rows = DEFAULT_ROWS,
+  cols = DEFAULT_COLS,
+  rng: Rng = Math.random,
+): Grid {
   for (;;) {
     const grid: Grid = [];
-    for (let r = 0; r < SIZE; r++) {
+    for (let r = 0; r < rows; r++) {
       const row: (Gem | null)[] = [];
       grid.push(row);
-      for (let c = 0; c < SIZE; c++) {
+      for (let c = 0; c < cols; c++) {
         let type: number;
         do {
           type = Math.floor(rng() * GEM_TYPES);
@@ -156,16 +168,18 @@ export function createBoard(rng: Rng = Math.random): Grid {
 
 /** Rearranges the existing gems until there are no matches and at least one move. */
 export function shuffle(grid: Grid, rng: Rng = Math.random): void {
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
   const gems = grid.flat().filter((g): g is Gem => g !== null);
   for (let attempt = 0; attempt < 1000; attempt++) {
     for (let i = gems.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [gems[i], gems[j]] = [gems[j], gems[i]];
     }
-    for (let i = 0; i < gems.length; i++) grid[Math.floor(i / SIZE)][i % SIZE] = gems[i];
+    for (let i = 0; i < gems.length; i++) grid[Math.floor(i / cols)][i % cols] = gems[i];
     if (findRuns(grid).length === 0 && findMove(grid)) return;
   }
   // Extremely unlikely with 7 types; fall back to a brand-new board.
-  const fresh = createBoard(rng);
-  for (let r = 0; r < SIZE; r++) grid[r] = fresh[r];
+  const fresh = createBoard(rows, cols, rng);
+  for (let r = 0; r < rows; r++) grid[r] = fresh[r];
 }

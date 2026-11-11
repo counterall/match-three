@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SIZE,
   collapse,
   createBoard,
   findMove,
@@ -92,12 +91,42 @@ describe('collapse', () => {
 describe('createBoard / shuffle', () => {
   it('creates full boards with no matches and a valid move', () => {
     for (let seed = 1; seed <= 20; seed++) {
-      const g = createBoard(seeded(seed));
-      expect(g).toHaveLength(SIZE);
-      expect(g.flat()).toHaveLength(SIZE * SIZE);
+      const g = createBoard(8, 8, seeded(seed));
+      expect(g).toHaveLength(8);
+      expect(g.flat()).toHaveLength(64);
       expect(findRuns(g)).toEqual([]);
       expect(findMove(g)).not.toBeNull();
     }
+  });
+
+  it('supports non-square boards (6 columns x 8 rows)', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = createBoard(8, 6, seeded(seed));
+      expect(g).toHaveLength(8);
+      expect(g.every((row) => row.length === 6)).toBe(true);
+      expect(findRuns(g)).toEqual([]);
+      expect(findMove(g)).not.toBeNull();
+    }
+  });
+
+  it('collapses and shuffles non-square boards in bounds', () => {
+    const g = createBoard(8, 6, seeded(3));
+    g[7][5] = null;
+    g[0][0] = null;
+    const spawns = collapse(g, seeded(4));
+    expect(spawns).toHaveLength(2);
+    expect(g.flat().every((x) => x !== null)).toBe(true);
+    shuffle(g, seeded(5));
+    expect(g).toHaveLength(8);
+    expect(g.every((row) => row.length === 6)).toBe(true);
+    expect(findMove(g)).not.toBeNull();
+  });
+
+  it('finds runs at the right and bottom edges of a non-square board', () => {
+    const g = gridFrom(['012345', '123450', '234501', '345012']);
+    g[0][3]!.type = 9; g[0][4]!.type = 9; g[0][5]!.type = 9;
+    g[1][5]!.type = 8; g[2][5]!.type = 8; g[3][5]!.type = 8;
+    expect(findRuns(g).map((r) => r.length)).toEqual([3, 3]);
   });
 
   it('shuffle fixes a stuck board while keeping the same gems', () => {

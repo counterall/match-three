@@ -25,10 +25,12 @@ Pushes to `main` deploy to GitHub Pages (https://counterall.github.io/match-thre
 
 ## Architecture
 
-- `src/board.ts`: **pure game logic**, with no DOM access. The grid is `grid[row][col]` of `Gem | null` (`null` only between clearing and refilling). Randomness is injected as an `Rng` so tests can be deterministic. Put new rules (special gems, modes, scoring) here and add tests in `src/board.test.ts`.
+- `src/board.ts`: **pure game logic**, with no DOM access. The grid is `grid[row][col]` of `Gem | null`, of any size (`rowsOf`/`colsOf`; never assume square or 8×8) (`null` only between clearing and refilling). Randomness is injected as an `Rng` so tests can be deterministic. Put new rules (special gems, modes, scoring) here and add tests in `src/board.test.ts`.
 - `src/main.ts`: rendering, input and game flow.
   - Each gem has a stable `id`, and its DOM element lives in the `els` map. `render()` moves elements to their grid positions with `transform: translate(col*100%, row*100%)`, and CSS transitions do the animation.
   - New gems from `collapse()` are created above the board (`fromRow < 0`) and then fall in.
+  - Board shape is responsive: `compactQuery` (`max-width: 600px`) picks 6 cols × 8 rows, otherwise 8×8. `newGame()` writes `--rows`/`--cols` on `<body>`; CSS sizes gems, grid lines and the column width from them. Crossing the breakpoint only rebuilds the board before the first move. The breakpoint is duplicated in the compact `@media` block in `style.css`, so keep the two in sync.
+  - `.app` width is capped so the board's height fits the viewport (`--chrome` ≈ height of header + controls + padding). Retune `--chrome` if those change height.
   - `busy` blocks input while a swap or cascade is running. `gameToken` is bumped by `newGame()` so cascades still in flight stop touching the board.
   - Animation timings are TS constants pushed to CSS as `--swap-ms` / `--pop-ms`. Keep TS waits and CSS durations in sync through these, and respect `prefers-reduced-motion`.
 - `src/gems.ts`: SVG shape per gem type (count must match `GEM_TYPES` in `board.ts`). No colours here.

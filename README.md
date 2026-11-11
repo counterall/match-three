@@ -11,6 +11,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Score:** 10 points per gem cleared, plus 20 for each gem beyond 3 in a line. Every cascade step multiplies the points (×2, ×3, …).
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
+- **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
 - Your best score is saved in the browser.
 - **Settings:** pick a colour theme: Neon, Pastel or Dark (black & white). Your choice is remembered.
 

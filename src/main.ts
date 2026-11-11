@@ -1,13 +1,14 @@
 import './style.css';
 import {
-  SIZE,
   clearCells,
   collapse,
   createBoard,
   findMove,
   findRuns,
   isAdjacent,
+  colsOf,
   matchedCells,
+  rowsOf,
   scoreFor,
   shuffle,
   swap,
@@ -26,6 +27,14 @@ const FALL_BASE_MS = reducedMotion ? 60 : 160;
 const FALL_PER_ROW_MS = reducedMotion ? 0 : 45;
 const HINT_DELAY_MS = 6000;
 const BEST_KEY = 'neon-cascade:best';
+
+// ---- Board layout: narrow (phone portrait) screens get fewer, bigger columns ----
+const compactQuery = window.matchMedia('(max-width: 600px)');
+const LAYOUTS = {
+  compact: { rows: 8, cols: 6 },
+  wide: { rows: 8, cols: 8 },
+};
+const currentLayout = () => (compactQuery.matches ? LAYOUTS.compact : LAYOUTS.wide);
 
 const root = document.documentElement;
 root.style.setProperty('--swap-ms', `${SWAP_MS}ms`);
@@ -91,8 +100,8 @@ function place(el: HTMLDivElement, row: number, col: number): void {
 
 /** Moves every gem element to its grid position (CSS transitions animate it). */
 function render(): void {
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
+  for (let r = 0; r < rowsOf(grid); r++) {
+    for (let c = 0; c < colsOf(grid); c++) {
       const gem = grid[r][c];
       if (!gem) continue;
       const el = els.get(gem.id) ?? createGemEl(gem.id, gem.type, r, c);
@@ -144,8 +153,8 @@ function floatPoints(cells: Pos[], points: number, type: number): void {
   el.className = 'float';
   el.textContent = `+${points}`;
   el.dataset.type = String(type);
-  el.style.left = `${((col + 0.5) / SIZE) * 100}%`;
-  el.style.top = `${((row + 0.5) / SIZE) * 100}%`;
+  el.style.left = `${((col + 0.5) / colsOf(grid)) * 100}%`;
+  el.style.top = `${((row + 0.5) / rowsOf(grid)) * 100}%`;
   boardEl.append(el);
   el.addEventListener('animationend', () => el.remove());
 }
@@ -232,7 +241,7 @@ async function resolveCascades(token: number): Promise<void> {
     const spawns = collapse(grid, Math.random);
     addSpawns(spawns);
     render();
-    await wait(FALL_BASE_MS + SIZE * FALL_PER_ROW_MS);
+    await wait(FALL_BASE_MS + rowsOf(grid) * FALL_PER_ROW_MS);
     if (token !== gameToken) return;
     cascade++;
   }
@@ -253,7 +262,10 @@ function newGame(): void {
   gameToken++;
   busy = false;
   selected = null;
-  grid = createBoard();
+  const { rows, cols } = currentLayout();
+  grid = createBoard(rows, cols);
+  document.body.style.setProperty('--rows', String(rows));
+  document.body.style.setProperty('--cols', String(cols));
   setScore(0);
   rebuildBoard();
   resetIdle();
@@ -279,7 +291,7 @@ boardEl.addEventListener('pointermove', (e) => {
   if (!drag) return;
   const dx = e.clientX - drag.x;
   const dy = e.clientY - drag.y;
-  const threshold = boardEl.clientWidth / SIZE / 3;
+  const threshold = boardEl.clientWidth / colsOf(grid) / 3;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
   const from = drag.pos;
   const to =
@@ -287,7 +299,9 @@ boardEl.addEventListener('pointermove', (e) => {
       ? { row: from.row, col: from.col + Math.sign(dx) }
       : { row: from.row + Math.sign(dy), col: from.col };
   drag = null;
-  if (to.row >= 0 && to.row < SIZE && to.col >= 0 && to.col < SIZE) void trySwap(from, to);
+  if (to.row >= 0 && to.row < rowsOf(grid) && to.col >= 0 && to.col < colsOf(grid)) {
+    void trySwap(from, to);
+  }
 });
 
 boardEl.addEventListener('pointerup', () => {
@@ -305,6 +319,12 @@ boardEl.addEventListener('pointercancel', () => (drag = null));
 
 hintBtn.addEventListener('click', showHint);
 newGameBtn.addEventListener('click', newGame);
+
+// Crossing the phone/desktop breakpoint swaps the board shape, but only before the
+// first move, so resizing or rotating never throws away a game in progress.
+compactQuery.addEventListener('change', () => {
+  if (score === 0 && !busy) newGame();
+});
 
 initSettings();
 

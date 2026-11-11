@@ -134,8 +134,12 @@
 }
 
 body {
+  --rows: 8; /* board shape, set from main.ts */
+  --cols: 8;
+  --chrome: 190px; /* approx. height of everything around the board, incl. page padding */
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text);
   background:
     radial-gradient(circle at 20% 10%, var(--bg-glow-1), transparent 45%),
@@ -148,7 +152,8 @@ body {
 }
 
 .app {
-  width: min(100%, 560px);
+  /* The board fills the column, so cap the column so the board's height fits the viewport. */
+  width: min(100%, 560px, calc((100dvh - var(--chrome)) * var(--cols) / var(--rows)));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -219,7 +224,7 @@ body {
 .board {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: var(--cols) / var(--rows);
   border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
@@ -229,7 +234,7 @@ body {
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 12.5% 12.5%;
+  background-size: calc(100% / var(--cols)) calc(100% / var(--rows));
   box-shadow: var(--board-shadow);
 }
 
@@ -237,8 +242,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 12.5%;
-  height: 12.5%;
+  width: calc(100% / var(--cols));
+  height: calc(100% / var(--rows));
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -591,6 +596,70 @@ button:focus-visible {
 .theme-option:has(input:checked) .theme-name::after {
   content: '✓';
   color: var(--accent);
+}
+
+/* =========================================================================
+   Compact layout (phones). Keep the breakpoint in sync with compactQuery in main.ts.
+   ========================================================================= */
+
+@media (max-width: 600px) {
+  body {
+    --chrome: 150px;
+    padding: 12px;
+  }
+
+  .app {
+    gap: 12px;
+  }
+
+  .hud {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .title {
+    font-size: clamp(1rem, 5.2vw, 1.3rem);
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+  }
+
+  .stats {
+    gap: 6px;
+  }
+
+  .stat {
+    min-width: 64px;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+
+  .label {
+    font-size: 0.6rem;
+  }
+
+  .value {
+    font-size: 1.05rem;
+  }
+
+  .controls {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .controls button {
+    flex: 1 1 0;
+    padding: 10px 6px;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+}
+
+/* Very narrow phones: stack the title words so the stats still fit beside it. */
+@media (max-width: 340px) {
+  .title span {
+    display: block;
+    margin-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
