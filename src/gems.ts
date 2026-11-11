@@ -1,17 +1,17 @@
 // Gem artwork: one SVG shape per gem type, drawn with 3D-style layers.
 //
 // Colours come from the active theme in CSS (an element with data-type="N" gets
-// --c: var(--gem-N)), so gems recolour on theme change. The 3D layers (shading,
-// raised table facet, gloss) are colour-independent white/black gradients, so they
+// --c: var(--gem-N)), so gems recolour on theme change. The 3D layers (shading and
+// gloss) are colour-independent white/black gradients, so they
 // are defined once per document in gemDefsSvg() and shared by every gem. Those
 // neutral white/black luminance gradients are the one deliberate exception to
 // "no colours outside the theme tokens"; themes control their strength via
-// --gem-shade / --gem-table / --gem-gloss.
+// --gem-shade / --gem-gloss.
 
 interface GemShape {
   /** SVG element(s) in a 100x100 viewBox. */
   shape: string;
-  /** Visual centre the table facet is scaled around (the centroid for the triangle etc.). */
+  /** Visual centre of the shape (the centroid for the triangle etc.), used to place the gloss. */
   cx: number;
   cy: number;
   /** Gloss highlight centre; defaults to up-left of (cx, cy). Set it where that point
@@ -37,23 +37,20 @@ const SHAPES: GemShape[] = [
 ];
 
 export const GEM_DEFS_ID = 'gem-defs';
-const TABLE_SCALE = 0.55;
 
 export function gemSvg(type: number): string {
   const { shape, cx, cy, gx = cx - 13, gy = cy - 17 } = SHAPES[type];
-  const table = `translate(${cx} ${cy}) scale(${TABLE_SCALE}) translate(${-cx} ${-cy})`;
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
     <g class="gem-body">${shape}</g>
     <g clip-path="url(#gem-clip-${type})">
       <rect class="gem-shade" x="0" y="0" width="100" height="100" fill="url(#gem-shade-grad)"/>
-      <g class="gem-table" fill="url(#gem-table-grad)" transform="${table}">${shape}</g>
       <ellipse class="gem-gloss" cx="${gx}" cy="${gy}" rx="15" ry="8" transform="rotate(-30 ${gx} ${gy})" fill="url(#gem-gloss-grad)"/>
     </g>
   </svg>`;
 }
 
 /**
- * Shared <defs> for all gems: per-type clip paths plus the shading, table and gloss
+ * Shared <defs> for all gems: per-type clip paths plus the shading and gloss
  * gradients. Hidden with zero size rather than display:none, which would stop
  * gradients resolving in some browsers.
  */
@@ -67,10 +64,6 @@ export function gemDefsSvg(): string {
         <stop offset="0.42" stop-color="#fff" stop-opacity="0"/>
         <stop offset="0.58" stop-color="#000" stop-opacity="0"/>
         <stop offset="1" stop-color="#000" stop-opacity="0.55"/>
-      </linearGradient>
-      <linearGradient id="gem-table-grad" x1="0" y1="0" x2="0.4" y2="1">
-        <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
-        <stop offset="1" stop-color="#fff" stop-opacity="0.05"/>
       </linearGradient>
       <radialGradient id="gem-gloss-grad">
         <stop offset="0" stop-color="#fff" stop-opacity="1"/>

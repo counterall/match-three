@@ -15,13 +15,13 @@ describe('gemSvg', () => {
     }
   });
 
-  it('layers 3D shading, a raised table facet and a gloss highlight, clipped to the shape', () => {
+  it('layers 3D shading and a gloss highlight, clipped to the shape, with no table facet', () => {
     for (const t of types) {
       const svg = gemSvg(t);
       expect(svg).toContain('class="gem-body"');
       expect(svg).toContain(`clip-path="url(#gem-clip-${t})"`);
       expect(svg).toContain('class="gem-shade"');
-      expect(svg).toContain('class="gem-table"');
+      expect(svg).not.toContain('gem-table');
       expect(svg).toContain('class="gem-gloss"');
     }
   });
@@ -36,7 +36,8 @@ describe('gemDefsSvg', () => {
 
   it('defines one clip path per gem type and the shared gradients exactly once', () => {
     for (const t of types) expect(defs.split(`id="gem-clip-${t}"`)).toHaveLength(2);
-    for (const id of ['gem-shade-grad', 'gem-table-grad', 'gem-gloss-grad']) {
+    expect(defs).not.toContain('gem-table');
+    for (const id of ['gem-shade-grad', 'gem-gloss-grad']) {
       expect(defs.split(`id="${id}"`)).toHaveLength(2);
     }
   });
