@@ -8,16 +8,31 @@ export const THEMES = [
 
 export type ThemeId = (typeof THEMES)[number]['id'];
 
+/** Round length options, in minutes. */
+export const TIME_LIMITS = [
+  { minutes: 3, label: '3 min' },
+  { minutes: 5, label: '5 min' },
+  { minutes: 10, label: '10 min' },
+] as const;
+
+export type TimeLimit = (typeof TIME_LIMITS)[number]['minutes'];
+
 export interface Settings {
   theme: ThemeId;
+  /** Round length in minutes. */
+  timeLimit: TimeLimit;
 }
 
 export const SETTINGS_KEY = 'neon-cascade:settings';
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'neon' };
+export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3 };
 
 export function isThemeId(value: unknown): value is ThemeId {
   return THEMES.some((t) => t.id === value);
+}
+
+export function isTimeLimit(value: unknown): value is TimeLimit {
+  return TIME_LIMITS.some((t) => t.minutes === value);
 }
 
 /** Parses stored settings, falling back to defaults for anything missing or invalid. */
@@ -31,6 +46,7 @@ export function parseSettings(raw: string | null): Settings {
   const obj = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
   return {
     theme: isThemeId(obj.theme) ? obj.theme : DEFAULT_SETTINGS.theme,
+    timeLimit: isTimeLimit(obj.timeLimit) ? obj.timeLimit : DEFAULT_SETTINGS.timeLimit,
   };
 }
 
