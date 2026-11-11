@@ -27,8 +27,9 @@ Before calling a change done, run `pnpm typecheck && pnpm test && pnpm build`. F
   - New gems from `collapse()` are created above the board (`fromRow < 0`) and then fall in.
   - `busy` blocks input while a swap or cascade is running. `gameToken` is bumped by `newGame()` so cascades still in flight stop touching the board.
   - Animation timings are TS constants pushed to CSS as `--swap-ms` / `--pop-ms`. Keep TS waits and CSS durations in sync through these, and respect `prefers-reduced-motion`.
-- `src/gems.ts`: colour and SVG shape per gem type. The type count must match `GEM_TYPES` in `board.ts`.
-- `src/style.css`: neon theme with a dark-only palette defined as CSS variables on `:root`.
+- `src/gems.ts`: SVG shape per gem type (count must match `GEM_TYPES` in `board.ts`). No colours here.
+- `src/settings.ts`: settings model (`THEMES`, `parseSettings`, load/save under `neon-cascade:settings`). Pure, tested in `settings.test.ts`. `settings-ui.ts` wires the native `<dialog>` in `index.html`; add new settings as extra `<section>`s and fields on `Settings`.
+- `src/style.css`: **themes are token sets** on `[data-theme="…"]` (neon, pastel, dark). `<html data-theme>` holds the active one; theme preview cards set their own `data-theme` to preview locally. Gem colours are `--gem-0…6`, mapped to `--c`/`--f` by `[data-type="N"]` rules. Glows scale with `--glow` (0 = flat). Never hard-code colours outside the token blocks, and when adding a token define it in **every** theme. A small inline script in `index.html` applies the saved theme before first paint.
 
 ## Conventions
 

@@ -12,6 +12,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
 - Your best score is saved in the browser.
+- **Settings:** pick a colour theme: Neon, Pastel or Dark (black & white). Your choice is remembered.
 
 ## Getting started
 
@@ -39,9 +40,11 @@ index.html          Page shell: header, board container, buttons
 src/
   board.ts          Pure game logic: matching, gravity, refill, moves, shuffle
   board.test.ts     Unit tests for the game logic
-  gems.ts           Neon gem colours and SVG shapes
+  gems.ts           Gem SVG shapes (colours come from the theme)
+  settings.ts       Settings model: themes, parsing, persistence
+  settings-ui.ts    Settings popup (theme picker)
   main.ts           Rendering, input, animations and game flow
-  style.css         Neon theme, layout and animations
+  style.css         Theme tokens, layout and animations
 ```
 
 ## Deploying

@@ -15,7 +15,8 @@ import {
   type Pos,
   type Spawn,
 } from './board';
-import { gemColor, gemSvg } from './gems';
+import { gemSvg } from './gems';
+import { initSettings } from './settings-ui';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -71,7 +72,7 @@ function createGemEl(id: number, type: number, row: number, col: number): HTMLDi
   const el = document.createElement('div');
   el.className = 'gem';
   el.dataset.id = String(id);
-  el.style.setProperty('--c', gemColor(type));
+  el.dataset.type = String(type);
   el.innerHTML = gemSvg(type);
   place(el, row, col);
   boardEl.append(el);
@@ -142,7 +143,7 @@ function floatPoints(cells: Pos[], points: number, type: number): void {
   const el = document.createElement('div');
   el.className = 'float';
   el.textContent = `+${points}`;
-  el.style.setProperty('--c', gemColor(type));
+  el.dataset.type = String(type);
   el.style.left = `${((col + 0.5) / SIZE) * 100}%`;
   el.style.top = `${((row + 0.5) / SIZE) * 100}%`;
   boardEl.append(el);
@@ -304,5 +305,7 @@ boardEl.addEventListener('pointercancel', () => (drag = null));
 
 hintBtn.addEventListener('click', showHint);
 newGameBtn.addEventListener('click', newGame);
+
+initSettings();
 
 newGame();
