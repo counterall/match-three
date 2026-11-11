@@ -23,10 +23,11 @@
   --board-shadow: 0 0 30px rgba(120, 90, 255, 0.25), inset 0 0 40px rgba(0, 0, 0, 0.6);
   --glow: 1; /* multiplier for every neon glow; 0 = flat */
   --highlight: #fff; /* glow colour for selected / popping gems */
-  --gem-fill-opacity: 0.18;
-  --gem-inner: #fff;
-  --gem-inner-opacity: 0.85;
-  --gem-shadow: drop-shadow(0 0 0 transparent);
+  --gem-fill-opacity: 0.5;
+  --gem-shade: 0.85; /* 3D layers: diagonal light/shadow, raised table facet, gloss */
+  --gem-table: 0.55;
+  --gem-gloss: 0.85;
+  --gem-shadow: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.6));
   --float-text: #fff;
   --toast-bg: rgba(7, 4, 26, 0.75);
 
@@ -56,9 +57,10 @@
   --board-shadow: 0 10px 30px rgba(150, 120, 200, 0.2);
   --glow: 0;
   --highlight: #7b6cd9;
-  --gem-fill-opacity: 0.9;
-  --gem-inner: #fff;
-  --gem-inner-opacity: 0.9;
+  --gem-fill-opacity: 0.92;
+  --gem-shade: 0.6;
+  --gem-table: 0.7;
+  --gem-gloss: 0.95;
   --gem-shadow: drop-shadow(0 2px 2px rgba(90, 60, 140, 0.2));
   --float-text: #4a3f6b;
   --toast-bg: rgba(255, 255, 255, 0.92);
@@ -90,9 +92,11 @@
   --board-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
   --glow: 0.35;
   --highlight: #fff;
-  --gem-inner: #000;
-  --gem-inner-opacity: 0.55;
-  --gem-shadow: drop-shadow(0 0 0 transparent);
+  --gem-fill-opacity: 1;
+  --gem-shade: 0.9;
+  --gem-table: 0.5;
+  --gem-gloss: 0.9;
+  --gem-shadow: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.9));
   --float-text: #fff;
   --toast-bg: rgba(0, 0, 0, 0.85);
 
@@ -103,23 +107,26 @@
   --gem-4: rgba(255, 255, 255, 0.95);
   --gem-5: rgba(255, 255, 255, 0.85);
   --gem-6: rgba(255, 255, 255, 0.9);
-  --gem-0-fill: 0.85;
-  --gem-1-fill: 0.08;
-  --gem-2-fill: 0.4;
-  --gem-3-fill: 0.08;
-  --gem-4-fill: 0.85;
-  --gem-5-fill: 0.4;
-  --gem-6-fill: 0.08;
+  /* Opaque grey bodies (light / mid / near-black). Translucent white would look
+     solid white because the glow's drop-shadow shows through it. */
+  --gem-0-body: #a3a3a3;
+  --gem-1-body: #141414;
+  --gem-2-body: #555;
+  --gem-3-body: #141414;
+  --gem-4-body: #a3a3a3;
+  --gem-5-body: #555;
+  --gem-6-body: #141414;
 }
 
-/* Gem colour (--c) and fill (--f) by type, used by gems, previews and score popups. */
-[data-type='0'] { --c: var(--gem-0); --f: var(--gem-0-fill, var(--gem-fill-opacity)); }
-[data-type='1'] { --c: var(--gem-1); --f: var(--gem-1-fill, var(--gem-fill-opacity)); }
-[data-type='2'] { --c: var(--gem-2); --f: var(--gem-2-fill, var(--gem-fill-opacity)); }
-[data-type='3'] { --c: var(--gem-3); --f: var(--gem-3-fill, var(--gem-fill-opacity)); }
-[data-type='4'] { --c: var(--gem-4); --f: var(--gem-4-fill, var(--gem-fill-opacity)); }
-[data-type='5'] { --c: var(--gem-5); --f: var(--gem-5-fill, var(--gem-fill-opacity)); }
-[data-type='6'] { --c: var(--gem-6); --f: var(--gem-6-fill, var(--gem-fill-opacity)); }
+/* Gem colour (--c) and body fill colour (--fc; optional per-theme --gem-N-body,
+   defaults to --c) by type. Used by gems, previews and score popups. */
+[data-type='0'] { --c: var(--gem-0); --fc: var(--gem-0-body, var(--c)); }
+[data-type='1'] { --c: var(--gem-1); --fc: var(--gem-1-body, var(--c)); }
+[data-type='2'] { --c: var(--gem-2); --fc: var(--gem-2-body, var(--c)); }
+[data-type='3'] { --c: var(--gem-3); --fc: var(--gem-3-body, var(--c)); }
+[data-type='4'] { --c: var(--gem-4); --fc: var(--gem-4-body, var(--c)); }
+[data-type='5'] { --c: var(--gem-5); --fc: var(--gem-5-body, var(--c)); }
+[data-type='6'] { --c: var(--gem-6); --fc: var(--gem-6-body, var(--c)); }
 
 /* =========================================================================
    Base
@@ -266,19 +273,23 @@ body {
 }
 
 .gem-body {
-  fill: var(--c);
-  fill-opacity: var(--f);
+  fill: var(--fc);
+  fill-opacity: var(--gem-fill-opacity);
   stroke: var(--c);
   stroke-width: 6;
   stroke-linejoin: round;
 }
 
-.gem-inner {
-  fill: none;
-  stroke: var(--gem-inner);
-  stroke-opacity: var(--gem-inner-opacity);
-  stroke-width: 2;
-  stroke-linejoin: round;
+.gem-shade {
+  opacity: var(--gem-shade);
+}
+
+.gem-table {
+  opacity: var(--gem-table);
+}
+
+.gem-gloss {
+  opacity: var(--gem-gloss);
 }
 
 .gem:hover svg {

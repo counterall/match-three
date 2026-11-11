@@ -16,7 +16,7 @@ import {
   type Pos,
   type Spawn,
 } from './board';
-import { gemSvg } from './gems';
+import { gemSvg, installGemDefs } from './gems';
 import { initSettings } from './settings-ui';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
@@ -326,6 +326,7 @@ compactQuery.addEventListener('change', () => {
   if (score === 0 && !busy) newGame();
 });
 
+installGemDefs();
 initSettings();
 
 newGame();
