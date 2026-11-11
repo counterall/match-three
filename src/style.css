@@ -129,6 +129,13 @@
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* No double-tap zoom anywhere: quick taps on gems or buttons must not zoom the page
+   (iOS Safari). touch-action applies to every descendant, and `manipulation` still
+   allows panning and pinch zoom, so the page stays zoomable for accessibility. */
+html {
+  touch-action: manipulation;
+}
+
 * {
   box-sizing: border-box;
 }
