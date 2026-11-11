@@ -36,9 +36,9 @@
       <div class="board-wrap">
         <div id="board" class="board" role="grid" aria-label="Game board"></div>
         <div id="toast" class="toast" aria-live="polite"></div>
-        <div id="game-over" class="game-over" role="dialog" aria-labelledby="game-over-title" hidden>
+        <div id="game-over" class="game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
           <h2 id="game-over-title">Time's up</h2>
-          <p class="final"><span class="label">Final score</span><span id="final-score" class="value">0</span></p>
+          <p id="final-score-line" class="final"><span class="label">Final score</span><span id="final-score" class="value">0</span></p>
           <p id="new-best" class="new-best" hidden>New best!</p>
           <button id="play-again" type="button">Play again</button>
         </div>

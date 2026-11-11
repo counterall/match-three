@@ -198,6 +198,7 @@ function resetIdle(): void {
 
 // ---- Game flow ----
 async function trySwap(a: Pos, b: Pos): Promise<void> {
+  updateClock(); // the tick may lag the clock by up to TICK_MS
   if (busy || timeUp) return;
   busy = true;
   const token = gameToken;
@@ -249,8 +250,8 @@ async function resolveCascades(token: number): Promise<void> {
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
     const messages = cascade >= 2 ? [`Cascade ×${cascade}`] : [];
-    if (bonus > 0) {
-      clock.add(bonus * 1000, performance.now());
+    // add() refuses once the clock has run out, even if the tick hasn't noticed yet.
+    if (bonus > 0 && clock.add(bonus * 1000, performance.now())) {
       flashTimeBonus();
       messages.push(`+${bonus}s`);
     }
@@ -406,6 +407,8 @@ const settings = initSettings({
     if (open) clock.hold('settings', performance.now());
     else clock.release('settings', performance.now());
     updateClock();
+    // The round may have ended behind the modal, where focus() can't reach.
+    if (!open && !gameOverEl.hidden) playAgainBtn.focus();
   },
   // A new limit applies to the next game, or right away if this one hasn't started.
   onTimeLimitChange(minutes) {

@@ -70,10 +70,12 @@ export class Countdown {
     this.holds.delete(reason);
   }
 
-  /** Adds time; does nothing once the countdown has run out. */
-  add(ms: number, now: number): void {
+  /** Adds time and returns true; does nothing (false) once the countdown has run out. */
+  add(ms: number, now: number): boolean {
     this.settle(now);
-    if (this.left > 0) this.left += ms;
+    if (this.left <= 0) return false;
+    this.left += ms;
+    return true;
   }
 
   /** Back to a fresh, unstarted countdown of `limitMs`. Holds are kept. */

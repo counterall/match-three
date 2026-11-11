@@ -105,7 +105,7 @@ describe('Countdown', () => {
   it('adds bonus time while running', () => {
     const c = new Countdown(60_000);
     c.start(0);
-    c.add(20_000, 30_000);
+    expect(c.add(20_000, 30_000)).toBe(true);
     expect(c.remaining(30_000)).toBe(50_000);
     expect(c.remaining(40_000)).toBe(40_000);
   });
@@ -113,7 +113,7 @@ describe('Countdown', () => {
   it('does not revive an expired countdown', () => {
     const c = new Countdown(1_000);
     c.start(0);
-    c.add(20_000, 2_000);
+    expect(c.add(20_000, 2_000)).toBe(false); // so no "+20s" is announced
     expect(c.expired(2_000)).toBe(true);
   });
 

@@ -157,20 +157,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  container-type: inline-size; /* the HUD adapts to the column width */
 }
 
-/* ---- HUD ---- */
+/* ---- HUD ----
+   Title and the three stats always share one row: a second row would break the
+   --chrome height budget. Narrow columns stack the title words instead. */
 .hud {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
 }
 
 .title {
   margin: 0;
-  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -246,6 +248,18 @@ body {
   from {
     border-color: var(--accent);
     box-shadow: 0 0 calc(16px * var(--glow) + 2px) var(--accent);
+  }
+}
+
+@container (max-width: 540px) {
+  .title {
+    font-size: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .title span {
+    display: block;
+    margin-left: 0;
   }
 }
 
@@ -750,12 +764,6 @@ button:focus-visible {
     line-height: 1.1;
   }
 
-  /* Stack the title words so the three stats fit beside it. */
-  .title span {
-    display: block;
-    margin-left: 0;
-  }
-
   .stats {
     gap: 6px;
   }
@@ -785,6 +793,18 @@ button:focus-visible {
     padding: 10px 6px;
     font-size: 0.8rem;
     letter-spacing: 0.05em;
+  }
+}
+
+/* Very narrow phones: tighter stats so six-digit scores still fit. */
+@media (max-width: 360px) {
+  .stat,
+  #time-stat {
+    padding: 4px 6px;
+  }
+
+  .value {
+    font-size: 0.95rem;
   }
 }
 
