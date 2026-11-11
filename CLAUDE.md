@@ -19,6 +19,10 @@ pnpm build        # tsc && vite build -> dist/
 
 Before calling a change done, run `pnpm typecheck && pnpm test && pnpm build`. For visual or UI changes, also check the game in a browser at desktop and phone width (~390px).
 
+## Deployment
+
+Pushes to `main` deploy to GitHub Pages (https://counterall.github.io/match-three/) via `.github/workflows/deploy.yml`, which runs typecheck, tests and build first, so a red CI means no deploy. pnpm's version is pinned by `packageManager` in `package.json`; keep it in sync with the lockfile. Keep `base: './'` in `vite.config.ts`.
+
 ## Architecture
 
 - `src/board.ts`: **pure game logic**, with no DOM access. The grid is `grid[row][col]` of `Gem | null` (`null` only between clearing and refilling). Randomness is injected as an `Rng` so tests can be deterministic. Put new rules (special gems, modes, scoring) here and add tests in `src/board.test.ts`.

@@ -49,7 +49,11 @@ src/
 
 ## Deploying
 
-`pnpm build` produces a static site in `dist/` that can be hosted anywhere (GitHub Pages, Netlify, Vercel, any static file server). For GitHub Pages under a sub-path, set `base` in a `vite.config.ts`, e.g. `base: '/match-three/'`.
+**Live:** https://counterall.github.io/match-three/
+
+Every push to `main` runs `.github/workflows/deploy.yml`: it installs dependencies, type-checks, runs the tests, builds and publishes `dist/` to GitHub Pages. Pull requests run the same checks without deploying. A deploy can also be started by hand from the repo's **Actions** tab (*Run workflow*).
+
+The build uses relative asset paths (`base: './'` in `vite.config.ts`), so `dist/` also works on any other static host.
 
 ## Roadmap
 
