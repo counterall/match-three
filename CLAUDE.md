@@ -37,6 +37,11 @@ Pushes to `main` deploy to GitHub Pages (https://counterall.github.io/match-thre
 - `src/settings.ts`: settings model (`THEMES`, `parseSettings`, load/save under `neon-cascade:settings`). Pure, tested in `settings.test.ts`. `settings-ui.ts` wires the native `<dialog>` in `index.html`; add new settings as extra `<section>`s and fields on `Settings`.
 - `src/style.css`: **themes are token sets** on `[data-theme="…"]` (neon, pastel, dark). `<html data-theme>` holds the active one; theme preview cards set their own `data-theme` to preview locally. Gem colours are `--gem-0…6`, mapped to `--c`/`--f` by `[data-type="N"]` rules. Glows scale with `--glow` (0 = flat). Never hard-code colours outside the token blocks, and when adding a token define it in **every** theme. A small inline script in `index.html` applies the saved theme before first paint.
 
+## Static assets and icons
+
+- `public/` is copied as-is into `dist/`. In `index.html`, reference these files with root-absolute paths (`/icon.svg`); Vite rewrites them to `./icon.svg` because of `base: './'`. Inside `manifest.webmanifest`, use paths relative to the manifest (`icon-192.png`, `start_url: "./"`), never `/…`, so the site works under the Pages sub-path.
+- `public/icon.svg` is the source for the favicon and the PNG app icons. After editing it, run `scripts/icons.sh` (headless Chrome, no dependencies) and commit the PNGs. Keep the background opaque and full-bleed and the artwork within the central 80% circle (maskable safe zone).
+
 ## Conventions
 
 - `strict` TypeScript with `verbatimModuleSyntax`: use `import type` for type-only imports.
