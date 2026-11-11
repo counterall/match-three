@@ -48,5 +48,5 @@ Pushes to `main` deploy to GitHub Pages (https://counterall.github.io/match-thre
 - Keep logic testable: no DOM in `board.ts`; helper functions should take a grid and mutate it or return results.
 - Use percentage sizes inside the board so it scales. Beware that percentage `padding`/`margin` is measured against the *board's* width, not the gem's.
 - Wrap `localStorage` access in try/catch.
-- Mobile zoom: `html { touch-action: manipulation }` stops double-tap zoom page-wide, and `.board` keeps `touch-action: none` for swipes. Don't add `user-scalable=no`/`maximum-scale` to the viewport meta, since pinch zoom must keep working for accessibility. `src/zoom.test.ts` guards all three. It reads `style.css?raw`, which only works because `vite.config.ts` opts `style.css` into Vitest's CSS handling (`test.css.include`).
+- Mobile zoom: `html { touch-action: manipulation }` stops double-tap zoom page-wide, and `.board` keeps `touch-action: none` for swipes. Don't add `user-scalable=no`/`maximum-scale` to the viewport meta, since pinch zoom must keep working for accessibility (it works outside the board). `src/zoom.test.ts` guards all three. It reads `style.css?raw`, which only works because `vite.config.ts` opts `style.css` into Vitest's CSS handling (`test.css.include`).
 - Commit or push only when asked.
