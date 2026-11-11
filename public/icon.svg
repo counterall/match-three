@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Neon Cascade app icon. Source for the PNG icons: run scripts/icons.sh after editing.
+       Full-bleed opaque background (iOS/Android apply their own masks); the gem stays
+       inside the central maskable safe zone (circle of radius 40% = 205px). -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0" stop-color="#1c0b4a"/>
+      <stop offset="1" stop-color="#07041a"/>
+    </radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00f0ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff2bd6" stop-opacity="0.55"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g filter="url(#glow)" stroke-linejoin="round" transform="translate(0 -27)">
+    <!-- Gem: crown (table) on top, pavilion pointing down -->
+    <polygon points="136,206 196,150 316,150 376,206 256,416" fill="url(#face)" opacity="0.35"/>
+    <polygon points="196,150 316,150 376,206 136,206" fill="#00f0ff" fill-opacity="0.18"
+             stroke="#00f0ff" stroke-width="12"/>
+    <polygon points="136,206 376,206 256,416" fill="#ff2bd6" fill-opacity="0.16"
+             stroke="#ff2bd6" stroke-width="12"/>
+    <polyline points="196,206 256,416 316,206" fill="none" stroke="#ff2bd6" stroke-width="7"/>
+    <polyline points="196,150 226,206 256,150 286,206 316,150" fill="none" stroke="#00f0ff" stroke-width="7"/>
+  </g>
+  <!-- Sparkle -->
+  <path d="M340 100 l8 22 22 8 -22 8 -8 22 -8 -22 -22 -8 22 -8z" fill="#ffffff" filter="url(#glow)"/>
+</svg>

@@ -4,10 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Neon Cascade</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2307041a'/%3E%3Cpolygon points='50,14 86,50 50,86 14,50' fill='none' stroke='%2300f0ff' stroke-width='8'/%3E%3C/svg%3E"
-    />
+    <!-- Icons and home-screen metadata live in public/ (see README "App icons").
+         Root-absolute hrefs are rewritten to relative ones by Vite (base: './'). -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Neon Cascade" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <script>
       // Apply the saved theme before first paint to avoid a flash of the default theme.
       try {

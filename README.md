@@ -14,6 +14,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
 - Your best score is saved in the browser.
 - **Settings:** pick a colour theme: Neon, Pastel or Dark (black & white). Your choice is remembered.
+- **Home screen:** on a phone, use *Share → Add to Home Screen* (iOS) or *Add to Home screen / Install app* (Android) to get a Neon Cascade app icon that opens full screen.
 
 ## Getting started
 
@@ -37,7 +38,12 @@ pnpm dev        # start the dev server, then open the printed URL
 ## Project structure
 
 ```
-index.html          Page shell: header, board container, buttons
+index.html          Page shell: header, board container, buttons, icon/manifest links
+public/             Static files copied as-is into dist/
+  icon.svg          App icon source (also the favicon)
+  apple-touch-icon.png, icon-192.png, icon-512.png   PNGs generated from icon.svg
+  manifest.webmanifest   Web app manifest for "Add to Home Screen"
+scripts/icons.sh    Regenerates the PNG icons from icon.svg
 src/
   board.ts          Pure game logic: matching, gravity, refill, moves, shuffle
   board.test.ts     Unit tests for the game logic
@@ -47,6 +53,16 @@ src/
   main.ts           Rendering, input, animations and game flow
   style.css         Theme tokens, layout and animations
 ```
+
+## App icons
+
+`public/icon.svg` is the single source for every icon. After editing it, regenerate and commit the PNGs:
+
+```bash
+scripts/icons.sh    # needs Google Chrome or Chromium; set CHROME=/path/to/browser to override
+```
+
+It writes `apple-touch-icon.png` (180×180, iOS home screen), `icon-192.png` and `icon-512.png` (manifest; the 512 is also the Android maskable icon). Keep the background full-bleed and opaque, since iOS and Android apply their own rounded masks, and keep the artwork inside the central circle of radius 40% so maskable crops don't clip it.
 
 ## Deploying
 
