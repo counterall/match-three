@@ -13,7 +13,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
-- **No accidental zoom:** tapping quickly on a phone never zooms the page; pinch zoom still works outside the board.
+- **No accidental zoom:** tapping quickly on a phone never zooms the page. In a browser tab, pinch zoom still works outside the board. In the home-screen app, the page doesn't zoom at all, like a native app.
 - Your best score is saved in the browser.
 - **Settings:** pick a colour theme (Neon, Pastel or Dark, black & white) and the round's time limit. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
 - **Home screen:** on a phone, use *Share → Add to Home Screen* (iOS) or *Add to Home screen / Install app* (Android) to get a Neon Cascade app icon that opens full screen.

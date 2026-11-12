@@ -18,6 +18,7 @@ import {
 } from './board';
 import { gemSvg, installGemDefs } from './gems';
 import { initSettings } from './settings-ui';
+import { installStandaloneZoomGuards } from './tap-guard';
 import { Countdown, bonusSeconds, formatTime } from './timer';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
@@ -401,6 +402,7 @@ document.addEventListener('visibilitychange', () => {
   updateClock();
 });
 
+installStandaloneZoomGuards();
 installGemDefs();
 const settings = initSettings({
   onOpenChange(open) {
