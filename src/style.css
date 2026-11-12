@@ -472,6 +472,7 @@ body {
   text-align: center;
   border-radius: 14px;
   background: color-mix(in srgb, var(--panel-solid) 82%, transparent);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   animation: dialog-in 240ms ease-out;
 }
@@ -483,6 +484,7 @@ body {
 /* Paused: hide the board well enough that it can't be studied while the clock is stopped. */
 .paused {
   background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
@@ -586,11 +588,11 @@ button:disabled {
 }
 
 .icon-btn .icon-play,
-.icon-btn[aria-pressed='true'] .icon-pause {
+.icon-btn[data-paused='true'] .icon-pause {
   display: none;
 }
 
-.icon-btn[aria-pressed='true'] .icon-play {
+.icon-btn[data-paused='true'] .icon-play {
   display: block;
 }
 
@@ -835,6 +837,13 @@ button:disabled {
     gap: 8px;
   }
 
+  .controls .icon-btn {
+    flex: 0 0 auto;
+    padding: 10px;
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
   .controls button:not(.icon-btn) {
     flex: 1 1 0;
     padding: 10px 6px;
@@ -843,8 +852,19 @@ button:disabled {
   }
 }
 
-/* Very narrow phones: tighter stats so six-digit scores still fit. */
+/* Very narrow phones: tighter stats so six-digit scores still fit, and tighter
+   control labels so the four controls stay on one line. */
 @media (max-width: 360px) {
+  .controls {
+    gap: 6px;
+  }
+
+  .controls button:not(.icon-btn) {
+    padding-inline: 4px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
   .stat,
   #time-stat {
     padding: 4px 6px;

@@ -334,8 +334,10 @@ function newGame(): void {
   selected = null;
   drag = null;
   gameOverEl.hidden = true;
-  setPaused(false);
+  // Reset the clock before unpausing: setPaused() runs updateClock(), which would
+  // otherwise see the previous round's expired clock and end this one at once.
   clock.reset(settings.timeLimit * 60_000);
+  setPaused(false);
   bestAtStart = best;
   const { rows, cols } = currentLayout();
   grid = createBoard(rows, cols);
@@ -354,7 +356,7 @@ const roundState = () => ({ started: clock.isStarted, timeUp, paused });
 /** The pause button works only while a round is running (after the first swap, before time's up). */
 function syncPauseButton(): void {
   pauseBtn.disabled = !paused && !canPause(roundState());
-  pauseBtn.setAttribute('aria-pressed', String(paused));
+  pauseBtn.dataset.paused = String(paused);
   pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
 }
 
@@ -376,6 +378,7 @@ function setPaused(on: boolean): void {
 }
 
 function pause(): void {
+  updateClock(); // the tick may lag by up to TICK_MS; time may already be up
   if (!canPause(roundState())) return;
   setPaused(true);
   if (!settingsDialog.open) resumeBtn.focus();
