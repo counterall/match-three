@@ -36,7 +36,12 @@
       <div class="board-wrap">
         <div id="board" class="board" role="grid" aria-label="Game board"></div>
         <div id="toast" class="toast" aria-live="polite"></div>
-        <div id="game-over" class="game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
+        <div id="paused" class="overlay paused" role="dialog" aria-labelledby="paused-title" hidden>
+          <h2 id="paused-title">Paused</h2>
+          <p class="overlay-note">The clock is stopped.</p>
+          <button id="resume" type="button">Resume</button>
+        </div>
+        <div id="game-over" class="overlay game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
           <h2 id="game-over-title">Time's up</h2>
           <p id="final-score-line" class="final"><span class="label">Final score</span><span id="final-score" class="value">0</span></p>
           <p id="new-best" class="new-best" hidden>New best!</p>
@@ -45,6 +50,10 @@
       </div>
 
       <footer class="controls">
+        <button id="pause" class="icon-btn" type="button" aria-label="Pause" aria-pressed="false" disabled>
+          <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
+        </button>
         <button id="hint" type="button">Hint</button>
         <button id="new-game" type="button">New game</button>
         <button id="open-settings" type="button" aria-haspopup="dialog">Settings</button>

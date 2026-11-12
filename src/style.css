@@ -458,8 +458,8 @@ body {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* ---- Game over (time's up) ---- */
-.game-over {
+/* ---- Board overlays: game over (time's up) and paused ---- */
+.overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -476,11 +476,21 @@ body {
   animation: dialog-in 240ms ease-out;
 }
 
-.game-over[hidden] {
+.overlay[hidden] {
   display: none;
 }
 
-.game-over h2 {
+/* Paused: hide the board well enough that it can't be studied while the clock is stopped. */
+.paused {
+  background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.overlay-note {
+  color: var(--muted);
+}
+
+.overlay h2 {
   margin: 0;
   font-size: clamp(1.6rem, 7vw, 2.4rem);
   letter-spacing: 0.08em;
@@ -491,7 +501,7 @@ body {
     0 0 calc(20px * var(--glow)) var(--accent-2);
 }
 
-.game-over p {
+.overlay p {
   margin: 0;
 }
 
@@ -554,6 +564,34 @@ button:focus-visible {
 
 #new-game {
   --btn: var(--accent-2);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Square icon button (pause/resume). Shows the pause icon, or play while paused. */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  padding: 10px 12px;
+}
+
+.icon-btn svg {
+  width: 1.2em;
+  height: 1.2em;
+  fill: currentColor;
+}
+
+.icon-btn .icon-play,
+.icon-btn[aria-pressed='true'] .icon-pause {
+  display: none;
+}
+
+.icon-btn[aria-pressed='true'] .icon-play {
+  display: block;
 }
 
 /* =========================================================================
@@ -797,7 +835,7 @@ button:focus-visible {
     gap: 8px;
   }
 
-  .controls button {
+  .controls button:not(.icon-btn) {
     flex: 1 1 0;
     padding: 10px 6px;
     font-size: 0.8rem;
@@ -824,7 +862,7 @@ button:focus-visible {
     filter: drop-shadow(0 0 4px var(--highlight)) drop-shadow(0 0 12px var(--c));
   }
   .settings[open],
-  .game-over,
+  .overlay,
   .stat.bonus,
   .stat.low .value {
     animation: none;
