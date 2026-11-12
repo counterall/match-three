@@ -166,20 +166,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  container-type: inline-size; /* the HUD adapts to the column width */
 }
 
-/* ---- HUD ---- */
+/* ---- HUD ----
+   Title and the three stats always share one row: a second row would break the
+   --chrome height budget. Narrow columns stack the title words instead. */
 .hud {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
 }
 
 .title {
   margin: 0;
-  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -198,12 +200,13 @@ body {
 
 .stats {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* Sized so the title and all three stats share one row in the 560px column. */
 .stat {
-  min-width: 96px;
-  padding: 6px 12px;
+  min-width: 84px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -223,6 +226,50 @@ body {
   font-size: 1.3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+#time-stat {
+  min-width: 72px; /* m:ss is narrower than a score */
+}
+
+/* Round timer: urgent in the last seconds, flashes when bonus time is added. */
+.stat.low {
+  border-color: var(--accent-2);
+}
+
+.stat.low .value {
+  color: var(--accent-2);
+  text-shadow: 0 0 calc(8px * var(--glow)) var(--accent-2);
+  animation: tick-pulse 1s ease-in-out infinite;
+}
+
+.stat.bonus {
+  animation: time-bonus 900ms ease-out;
+}
+
+@keyframes tick-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes time-bonus {
+  from {
+    border-color: var(--accent);
+    box-shadow: 0 0 calc(16px * var(--glow) + 2px) var(--accent);
+  }
+}
+
+@container (max-width: 540px) {
+  .title {
+    font-size: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .title span {
+    display: block;
+    margin-left: 0;
+  }
 }
 
 /* ---- Board ---- */
@@ -409,6 +456,61 @@ body {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
+}
+
+/* ---- Game over (time's up) ---- */
+.game-over {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-solid) 82%, transparent);
+  backdrop-filter: blur(4px);
+  animation: dialog-in 240ms ease-out;
+}
+
+.game-over[hidden] {
+  display: none;
+}
+
+.game-over h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 7vw, 2.4rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  text-shadow:
+    0 0 calc(8px * var(--glow)) var(--accent-2),
+    0 0 calc(20px * var(--glow)) var(--accent-2);
+}
+
+.game-over p {
+  margin: 0;
+}
+
+.game-over .final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-over .final .value {
+  font-size: clamp(1.8rem, 8vw, 2.6rem);
+}
+
+.new-best {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 0 calc(8px * var(--glow)) var(--accent);
 }
 
 /* ---- Buttons ---- */
@@ -603,6 +705,49 @@ button:focus-visible {
   color: var(--accent);
 }
 
+/* ---- Pill picker (time limit) ---- */
+.pill-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pill-option {
+  position: relative;
+  padding: 10px 8px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 150ms ease;
+}
+
+.pill-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pill-option:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 calc(12px * var(--glow)) color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.pill-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+}
+
+.settings-note {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* =========================================================================
    Compact layout (phones). Keep the breakpoint in sync with compactQuery in main.ts.
    ========================================================================= */
@@ -632,9 +777,10 @@ button:focus-visible {
     gap: 6px;
   }
 
-  .stat {
-    min-width: 64px;
-    padding: 4px 10px;
+  .stat,
+  #time-stat {
+    min-width: 56px;
+    padding: 4px 8px;
     border-radius: 8px;
   }
 
@@ -659,11 +805,15 @@ button:focus-visible {
   }
 }
 
-/* Very narrow phones: stack the title words so the stats still fit beside it. */
-@media (max-width: 340px) {
-  .title span {
-    display: block;
-    margin-left: 0;
+/* Very narrow phones: tighter stats so six-digit scores still fit. */
+@media (max-width: 360px) {
+  .stat,
+  #time-stat {
+    padding: 4px 6px;
+  }
+
+  .value {
+    font-size: 0.95rem;
   }
 }
 
@@ -673,7 +823,10 @@ button:focus-visible {
     animation: none;
     filter: drop-shadow(0 0 4px var(--highlight)) drop-shadow(0 0 12px var(--c));
   }
-  .settings[open] {
+  .settings[open],
+  .game-over,
+  .stat.bonus,
+  .stat.low .value {
     animation: none;
   }
 }

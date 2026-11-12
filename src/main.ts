@@ -18,6 +18,7 @@ import {
 } from './board';
 import { gemSvg, installGemDefs } from './gems';
 import { initSettings } from './settings-ui';
+import { Countdown, bonusSeconds, formatTime } from './timer';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -26,6 +27,8 @@ const POP_MS = reducedMotion ? 60 : 280;
 const FALL_BASE_MS = reducedMotion ? 60 : 160;
 const FALL_PER_ROW_MS = reducedMotion ? 0 : 45;
 const HINT_DELAY_MS = 6000;
+const TICK_MS = 200; // how often the HUD clock refreshes
+const LOW_TIME_MS = 10_000; // the clock turns urgent below this
 const BEST_KEY = 'neon-cascade:best';
 
 // ---- Board layout: narrow (phone portrait) screens get fewer, bigger columns ----
@@ -47,6 +50,12 @@ const bestEl = document.querySelector<HTMLSpanElement>('#best')!;
 const toastEl = document.querySelector<HTMLDivElement>('#toast')!;
 const hintBtn = document.querySelector<HTMLButtonElement>('#hint')!;
 const newGameBtn = document.querySelector<HTMLButtonElement>('#new-game')!;
+const timeEl = document.querySelector<HTMLSpanElement>('#time')!;
+const timeStatEl = document.querySelector<HTMLDivElement>('#time-stat')!;
+const gameOverEl = document.querySelector<HTMLDivElement>('#game-over')!;
+const finalScoreEl = document.querySelector<HTMLSpanElement>('#final-score')!;
+const newBestEl = document.querySelector<HTMLParagraphElement>('#new-best')!;
+const playAgainBtn = document.querySelector<HTMLButtonElement>('#play-again')!;
 
 // ---- State ----
 let grid: Grid = [];
@@ -56,6 +65,9 @@ let busy = false;
 let selected: Pos | null = null;
 let hintTimer = 0;
 let gameToken = 0; // bumps on new game so in-flight cascades stop touching the board
+const clock = new Countdown(0); // round timer; starts on the first swap
+let timeUp = false; // the clock ran out: no more input
+let bestAtStart = 0; // to tell whether this round set a new best
 const els = new Map<number, HTMLDivElement>();
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -171,7 +183,7 @@ function clearHint(): void {
 }
 
 function showHint(): void {
-  if (busy) return;
+  if (busy || timeUp) return;
   clearHint();
   const move = findMove(grid);
   if (!move) return;
@@ -186,9 +198,11 @@ function resetIdle(): void {
 
 // ---- Game flow ----
 async function trySwap(a: Pos, b: Pos): Promise<void> {
-  if (busy) return;
+  updateClock(); // the tick may lag the clock by up to TICK_MS
+  if (busy || timeUp) return;
   busy = true;
   const token = gameToken;
+  clock.start(performance.now());
   select(null);
   resetIdle();
 
@@ -207,14 +221,20 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
     if (token !== gameToken) return;
     elAt(a)?.classList.remove('nope');
     elAt(b)?.classList.remove('nope');
-    busy = false;
+    finishMove();
     return;
   }
 
   await resolveCascades(token);
   if (token !== gameToken) return;
+  finishMove();
+}
+
+/** Unblocks input after a move, or ends the round if time ran out during it. */
+function finishMove(): void {
   busy = false;
-  resetIdle();
+  if (timeUp) showGameOver();
+  else resetIdle();
 }
 
 async function resolveCascades(token: number): Promise<void> {
@@ -227,8 +247,15 @@ async function resolveCascades(token: number): Promise<void> {
     const popping = cells.map((p) => elAt(p)).filter((el): el is HTMLDivElement => !!el);
     popping.forEach((el) => el.classList.add('pop'));
     floatPoints(cells, points, type);
+    const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
-    if (cascade >= 2) toast(`Cascade ×${cascade}`);
+    const messages = cascade >= 2 ? [`Cascade ×${cascade}`] : [];
+    // add() refuses once the clock has run out, even if the tick hasn't noticed yet.
+    if (bonus > 0 && clock.add(bonus * 1000, performance.now())) {
+      flashTimeBonus();
+      messages.push(`+${bonus}s`);
+    }
+    if (messages.length > 0) toast(messages.join(' · '));
 
     await wait(POP_MS);
     if (token !== gameToken) return;
@@ -258,10 +285,49 @@ async function resolveCascades(token: number): Promise<void> {
   }
 }
 
+// ---- Round timer ----
+function updateClock(): void {
+  const left = clock.remaining(performance.now());
+  const text = formatTime(left);
+  if (timeEl.textContent !== text) timeEl.textContent = text;
+  timeStatEl.classList.toggle('low', clock.isStarted && left > 0 && left <= LOW_TIME_MS);
+  if (!timeUp && clock.isStarted && left <= 0) endRound();
+}
+
+function flashTimeBonus(): void {
+  timeStatEl.classList.remove('bonus');
+  void timeStatEl.offsetWidth; // restart the animation
+  timeStatEl.classList.add('bonus');
+}
+
+/** Time ran out: block input now; a cascade already running finishes first. */
+function endRound(): void {
+  timeUp = true;
+  select(null);
+  drag = null;
+  clearTimeout(hintTimer);
+  clearHint();
+  if (!busy) showGameOver();
+}
+
+function showGameOver(): void {
+  clearTimeout(hintTimer);
+  clearHint();
+  finalScoreEl.textContent = score.toLocaleString();
+  newBestEl.hidden = !(score > bestAtStart && score > 0);
+  gameOverEl.hidden = false;
+  playAgainBtn.focus();
+}
+
 function newGame(): void {
   gameToken++;
   busy = false;
+  timeUp = false;
   selected = null;
+  drag = null;
+  gameOverEl.hidden = true;
+  clock.reset(settings.timeLimit * 60_000);
+  bestAtStart = best;
   const { rows, cols } = currentLayout();
   grid = createBoard(rows, cols);
   document.body.style.setProperty('--rows', String(rows));
@@ -269,6 +335,7 @@ function newGame(): void {
   setScore(0);
   rebuildBoard();
   resetIdle();
+  updateClock();
 }
 
 // ---- Input: tap-to-select or swipe a gem ----
@@ -282,7 +349,7 @@ function posFromEvent(e: PointerEvent): Pos | null {
 
 boardEl.addEventListener('pointerdown', (e) => {
   const pos = posFromEvent(e);
-  if (!pos || busy) return;
+  if (!pos || busy || timeUp) return;
   drag = { pos, x: e.clientX, y: e.clientY };
   boardEl.setPointerCapture(e.pointerId);
 });
@@ -308,7 +375,7 @@ boardEl.addEventListener('pointerup', () => {
   if (!drag) return; // a swipe already handled it
   const pos = drag.pos;
   drag = null;
-  if (busy) return;
+  if (busy || timeUp) return;
   resetIdle();
   if (selected && selected.row === pos.row && selected.col === pos.col) select(null);
   else if (selected && isAdjacent(selected, pos)) void trySwap(selected, pos);
@@ -319,14 +386,39 @@ boardEl.addEventListener('pointercancel', () => (drag = null));
 
 hintBtn.addEventListener('click', showHint);
 newGameBtn.addEventListener('click', newGame);
+playAgainBtn.addEventListener('click', newGame);
 
 // Crossing the phone/desktop breakpoint swaps the board shape, but only before the
 // first move, so resizing or rotating never throws away a game in progress.
 compactQuery.addEventListener('change', () => {
-  if (score === 0 && !busy) newGame();
+  if (!clock.isStarted && !busy) newGame();
+});
+
+// The clock pauses while the settings dialog is open or the page is hidden.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) clock.hold('hidden', performance.now());
+  else clock.release('hidden', performance.now());
+  updateClock();
 });
 
 installGemDefs();
-initSettings();
+const settings = initSettings({
+  onOpenChange(open) {
+    if (open) clock.hold('settings', performance.now());
+    else clock.release('settings', performance.now());
+    updateClock();
+    // The round may have ended behind the modal, where focus() can't reach.
+    if (!open && !gameOverEl.hidden) playAgainBtn.focus();
+  },
+  // A new limit applies to the next game, or right away if this one hasn't started.
+  onTimeLimitChange(minutes) {
+    if (!clock.isStarted && !timeUp) {
+      clock.reset(minutes * 60_000);
+      updateClock();
+    }
+  },
+});
+if (document.hidden) clock.hold('hidden', performance.now());
+setInterval(updateClock, TICK_MS);
 
 newGame();

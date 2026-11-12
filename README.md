@@ -9,12 +9,13 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Swap:** click or tap a gem, then click a neighbouring gem. You can also drag a gem up, down, left or right.
 - **Match:** a swap only counts if it makes a line of 3 or more. Otherwise the gems slide back.
 - **Score:** 10 points per gem cleared, plus 20 for each gem beyond 3 in a line. Every cascade step multiplies the points (×2, ×3, …).
+- **Time limit:** each round lasts 3 minutes by default (5 or 10 in Settings). The clock starts with your first move and pauses while Settings is open or the tab is hidden. Every 1,000 points adds 20 seconds. When time runs out, a cascade already falling still scores, then the round ends and **Play again** starts a new one.
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
 - **No accidental zoom:** tapping quickly on a phone never zooms the page; pinch zoom still works outside the board.
 - Your best score is saved in the browser.
-- **Settings:** pick a colour theme: Neon, Pastel or Dark (black & white). Your choice is remembered.
+- **Settings:** pick a colour theme (Neon, Pastel or Dark, black & white) and the round's time limit. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
 - **Home screen:** on a phone, use *Share → Add to Home Screen* (iOS) or *Add to Home screen / Install app* (Android) to get a Neon Cascade app icon that opens full screen.
 
 ## Getting started
@@ -49,8 +50,9 @@ src/
   board.ts          Pure game logic: matching, gravity, refill, moves, shuffle
   board.test.ts     Unit tests for the game logic
   gems.ts           Gem SVG shapes (colours come from the theme)
-  settings.ts       Settings model: themes, parsing, persistence
-  settings-ui.ts    Settings popup (theme picker)
+  settings.ts       Settings model: themes, time limits, parsing, persistence
+  settings-ui.ts    Settings popup (theme and time-limit pickers)
+  timer.ts          Round timer rules: countdown with pauses, time bonus, m:ss
   main.ts           Rendering, input, animations and game flow
   style.css         Theme tokens, layout and animations
 ```
@@ -77,5 +79,5 @@ The build uses relative asset paths (`base: './'` in `vite.config.ts`), so `dist
 
 - Special gems for 4- and 5-in-a-row matches
 - Sound effects
-- Timed mode and levels
+- Levels
 - Keyboard controls
