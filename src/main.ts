@@ -20,6 +20,7 @@ import { gemSvg, installGemDefs } from './gems';
 import { initSettings } from './settings-ui';
 import { installStandaloneZoomGuards } from './tap-guard';
 import { Countdown, bonusSeconds, formatTime } from './timer';
+import { canPause, shouldAutoPause } from './pause';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -57,6 +58,9 @@ const gameOverEl = document.querySelector<HTMLDivElement>('#game-over')!;
 const finalScoreEl = document.querySelector<HTMLSpanElement>('#final-score')!;
 const newBestEl = document.querySelector<HTMLParagraphElement>('#new-best')!;
 const playAgainBtn = document.querySelector<HTMLButtonElement>('#play-again')!;
+const pauseBtn = document.querySelector<HTMLButtonElement>('#pause')!;
+const pausedEl = document.querySelector<HTMLDivElement>('#paused')!;
+const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
 
 // ---- State ----
 let grid: Grid = [];
@@ -68,6 +72,7 @@ let hintTimer = 0;
 let gameToken = 0; // bumps on new game so in-flight cascades stop touching the board
 const clock = new Countdown(0); // round timer; starts on the first swap
 let timeUp = false; // the clock ran out: no more input
+let paused = false; // the player paused (or the page was hidden): no input, clock held
 let bestAtStart = 0; // to tell whether this round set a new best
 const els = new Map<number, HTMLDivElement>();
 
@@ -184,7 +189,7 @@ function clearHint(): void {
 }
 
 function showHint(): void {
-  if (busy || timeUp) return;
+  if (busy || timeUp || paused) return;
   clearHint();
   const move = findMove(grid);
   if (!move) return;
@@ -200,10 +205,11 @@ function resetIdle(): void {
 // ---- Game flow ----
 async function trySwap(a: Pos, b: Pos): Promise<void> {
   updateClock(); // the tick may lag the clock by up to TICK_MS
-  if (busy || timeUp) return;
+  if (busy || timeUp || paused) return;
   busy = true;
   const token = gameToken;
   clock.start(performance.now());
+  syncPauseButton();
   select(null);
   resetIdle();
 
@@ -235,7 +241,7 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
 function finishMove(): void {
   busy = false;
   if (timeUp) showGameOver();
-  else resetIdle();
+  else if (!paused) resetIdle();
 }
 
 async function resolveCascades(token: number): Promise<void> {
@@ -304,6 +310,7 @@ function flashTimeBonus(): void {
 /** Time ran out: block input now; a cascade already running finishes first. */
 function endRound(): void {
   timeUp = true;
+  syncPauseButton();
   select(null);
   drag = null;
   clearTimeout(hintTimer);
@@ -327,7 +334,10 @@ function newGame(): void {
   selected = null;
   drag = null;
   gameOverEl.hidden = true;
+  // Reset the clock before unpausing: setPaused() runs updateClock(), which would
+  // otherwise see the previous round's expired clock and end this one at once.
   clock.reset(settings.timeLimit * 60_000);
+  setPaused(false);
   bestAtStart = best;
   const { rows, cols } = currentLayout();
   grid = createBoard(rows, cols);
@@ -337,6 +347,48 @@ function newGame(): void {
   rebuildBoard();
   resetIdle();
   updateClock();
+  syncPauseButton();
+}
+
+// ---- Pause / resume ----
+const roundState = () => ({ started: clock.isStarted, timeUp, paused });
+
+/** The pause button works only while a round is running (after the first swap, before time's up). */
+function syncPauseButton(): void {
+  pauseBtn.disabled = !paused && !canPause(roundState());
+  pauseBtn.dataset.paused = String(paused);
+  pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+}
+
+function setPaused(on: boolean): void {
+  paused = on;
+  if (on) {
+    clock.hold('paused', performance.now());
+    select(null);
+    drag = null;
+    clearTimeout(hintTimer);
+    clearHint();
+  } else {
+    clock.release('paused', performance.now());
+  }
+  pausedEl.hidden = !on;
+  hintBtn.disabled = on;
+  syncPauseButton();
+  updateClock();
+}
+
+function pause(): void {
+  updateClock(); // the tick may lag by up to TICK_MS; time may already be up
+  if (!canPause(roundState())) return;
+  setPaused(true);
+  if (!settingsDialog.open) resumeBtn.focus();
+}
+
+function resume(): void {
+  if (!paused) return;
+  setPaused(false);
+  if (!busy) resetIdle();
+  pauseBtn.focus();
 }
 
 // ---- Input: tap-to-select or swipe a gem ----
@@ -350,7 +402,7 @@ function posFromEvent(e: PointerEvent): Pos | null {
 
 boardEl.addEventListener('pointerdown', (e) => {
   const pos = posFromEvent(e);
-  if (!pos || busy || timeUp) return;
+  if (!pos || busy || timeUp || paused) return;
   drag = { pos, x: e.clientX, y: e.clientY };
   boardEl.setPointerCapture(e.pointerId);
 });
@@ -376,7 +428,7 @@ boardEl.addEventListener('pointerup', () => {
   if (!drag) return; // a swipe already handled it
   const pos = drag.pos;
   drag = null;
-  if (busy || timeUp) return;
+  if (busy || timeUp || paused) return;
   resetIdle();
   if (selected && selected.row === pos.row && selected.col === pos.col) select(null);
   else if (selected && isAdjacent(selected, pos)) void trySwap(selected, pos);
@@ -388,6 +440,8 @@ boardEl.addEventListener('pointercancel', () => (drag = null));
 hintBtn.addEventListener('click', showHint);
 newGameBtn.addEventListener('click', newGame);
 playAgainBtn.addEventListener('click', newGame);
+pauseBtn.addEventListener('click', () => (paused ? resume() : pause()));
+resumeBtn.addEventListener('click', resume);
 
 // Crossing the phone/desktop breakpoint swaps the board shape, but only before the
 // first move, so resizing or rotating never throws away a game in progress.
@@ -395,12 +449,21 @@ compactQuery.addEventListener('change', () => {
   if (!clock.isStarted && !busy) newGame();
 });
 
-// The clock pauses while the settings dialog is open or the page is hidden.
+// The clock pauses while the settings dialog is open or the page is hidden. Hiding the
+// page (switching tabs, minimising the home-screen app) also pauses a running round,
+// so coming back shows the Paused screen instead of jumping straight into play.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) clock.hold('hidden', performance.now());
   else clock.release('hidden', performance.now());
+  if (shouldAutoPause(roundState(), document.hidden)) pause();
   updateClock();
 });
+// iOS home-screen apps may skip visibilitychange when backgrounded; pagehide still fires.
+window.addEventListener('pagehide', () => {
+  if (shouldAutoPause(roundState(), true)) pause();
+});
+
+const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!;
 
 installStandaloneZoomGuards();
 installGemDefs();
@@ -411,6 +474,7 @@ const settings = initSettings({
     updateClock();
     // The round may have ended behind the modal, where focus() can't reach.
     if (!open && !gameOverEl.hidden) playAgainBtn.focus();
+    else if (!open && paused) resumeBtn.focus();
   },
   // A new limit applies to the next game, or right away if this one hasn't started.
   onTimeLimitChange(minutes) {
