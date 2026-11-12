@@ -129,6 +129,15 @@
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* No double-tap zoom anywhere: quick taps on gems or buttons must not zoom the page
+   (iOS Safari). touch-action isn't inherited, but browsers intersect it with every
+   ancestor's value, so this covers the whole page (a child can't re-enable double-tap
+   zoom). `manipulation` still allows panning and pinch zoom, so the page stays
+   zoomable for accessibility (outside the board, which keeps touch-action: none). */
+html {
+  touch-action: manipulation;
+}
+
 * {
   box-sizing: border-box;
 }
