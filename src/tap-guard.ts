@@ -1,36 +1,29 @@
-// Zoom guards for the iOS home-screen app ("Add to Home Screen", display: standalone).
+// Zoom guards for the iOS home-screen app ("Add to Home Screen").
 //
 // In a Safari tab, `html { touch-action: manipulation }` (style.css) already stops
-// double-tap zoom. iOS home-screen web apps don't reliably honour it, so there we also:
+// double-tap zoom, but double-tap zoom was reported to still happen in the iOS
+// home-screen app (issue #9). So there, and only there, we also:
 //   1. cancel the second touchend of a quick double tap (that's what triggers the zoom),
 //      re-dispatching the click for buttons/controls so fast taps still register, and
 //   2. lock the viewport scale (maximum-scale=1, user-scalable=no), as a native app would.
-// Nothing here runs in a normal browser tab, which keeps pinch zoom there.
+// Browser tabs and other installed apps (e.g. Android, where touch-action works) are
+// untouched and keep pinch zoom.
 
 /** Max gap between two taps for iOS to treat them as a double tap. */
 export const DOUBLE_TAP_MS = 350;
-/** Max distance between two taps (CSS px) for them to count as the same spot. */
-export const DOUBLE_TAP_PX = 40;
-
-export interface Tap {
-  t: number;
-  x: number;
-  y: number;
-}
 
 /**
- * Returns a stateful check: call it for every single-finger touchend; it returns
- * true when that tap completes a double tap and should be cancelled.
+ * Returns a stateful check: call it with the timestamp of every single-finger
+ * touchend; it returns true when that tap follows the previous one quickly enough
+ * to count as a double tap and should be cancelled. Position is ignored on purpose:
+ * blocking a few extra taps costs nothing (controls get their click replayed), while
+ * letting one through can zoom.
  */
-export function createDoubleTapGuard(): (tap: Tap) => boolean {
-  let last: Tap | null = null;
-  return (tap) => {
-    const isDouble =
-      last !== null &&
-      tap.t - last.t < DOUBLE_TAP_MS &&
-      Math.hypot(tap.x - last.x, tap.y - last.y) <= DOUBLE_TAP_PX;
-    // A cancelled tap ends the pair, so the next tap starts fresh.
-    last = isDouble ? null : tap;
+export function createDoubleTapGuard(): (t: number) => boolean {
+  let last = -Infinity;
+  return (t) => {
+    const isDouble = t - last < DOUBLE_TAP_MS;
+    last = t; // always track the latest tap, so rapid triple taps stay blocked
     return isDouble;
   };
 }
@@ -44,33 +37,47 @@ export function lockViewportScale(content: string): string {
   return [...parts, 'maximum-scale=1', 'user-scalable=no'].join(', ');
 }
 
-/** True when running as an installed / home-screen app rather than in a browser tab. */
-export function isStandalone(nav: { standalone?: boolean }, matches: (query: string) => boolean): boolean {
-  return nav.standalone === true || matches('(display-mode: standalone)');
+/** True only for an iOS home-screen web app (`navigator.standalone` is iOS-only). */
+export function isIosHomeScreenApp(nav: { standalone?: boolean }): boolean {
+  return nav.standalone === true;
 }
 
 /** Elements whose click a cancelled touchend would otherwise swallow. */
-const CLICKABLE = 'button, a[href], label, input, select, textarea, [role="button"], [role="radio"]';
+export const CLICKABLE = 'button, a[href], label, input, select, textarea, [role="button"], [role="radio"]';
 
-/** Installs the guards when running as a home-screen app. Call once at startup. */
+/** The parts of a TouchEvent the guard reads (so it can be tested without a DOM). */
+export interface TouchEndLike {
+  timeStamp: number;
+  touches: { length: number };
+  changedTouches: { length: number };
+  target: unknown;
+  preventDefault(): void;
+}
+
+interface ClosestCapable {
+  closest(selector: string): { click(): void } | null;
+}
+
+/** Builds the document-level touchend handler used in the home-screen app. */
+export function createTouchEndHandler(isDoubleTap = createDoubleTapGuard()): (e: TouchEndLike) => void {
+  return (e) => {
+    // Only plain single-finger taps; leave multi-touch to the browser.
+    if (e.touches.length > 0 || e.changedTouches.length !== 1) return;
+    if (!isDoubleTap(e.timeStamp)) return;
+    e.preventDefault(); // stops the double-tap zoom, but also the synthetic click...
+    const target = e.target as Partial<ClosestCapable> | null;
+    // ...so replay it for controls. Board input uses pointer events, which a cancelled
+    // touchend doesn't affect.
+    target?.closest?.(CLICKABLE)?.click();
+  };
+}
+
+/** Installs the guards when running as an iOS home-screen app. Call once at startup. */
 export function installStandaloneZoomGuards(): void {
-  if (!isStandalone(navigator as { standalone?: boolean }, (q) => matchMedia(q).matches)) return;
+  if (!isIosHomeScreenApp(navigator as { standalone?: boolean })) return;
 
   const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   if (meta) meta.content = lockViewportScale(meta.content);
 
-  const isDoubleTap = createDoubleTapGuard();
-  document.addEventListener(
-    'touchend',
-    (e) => {
-      // Only plain single-finger taps; leave multi-touch to the browser.
-      if (e.touches.length > 0 || e.changedTouches.length !== 1) return;
-      const touch = e.changedTouches[0];
-      if (!isDoubleTap({ t: e.timeStamp, x: touch.clientX, y: touch.clientY })) return;
-      e.preventDefault(); // stops the double-tap zoom, but also the synthetic click...
-      const target = e.target instanceof Element ? e.target.closest<HTMLElement>(CLICKABLE) : null;
-      target?.click(); // ...so replay it for controls. Board input uses pointer events.
-    },
-    { passive: false },
-  );
+  document.addEventListener('touchend', createTouchEndHandler(), { passive: false });
 }

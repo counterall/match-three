@@ -1,37 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { DOUBLE_TAP_MS, DOUBLE_TAP_PX, createDoubleTapGuard, isStandalone, lockViewportScale } from './tap-guard';
+import {
+  CLICKABLE,
+  DOUBLE_TAP_MS,
+  createDoubleTapGuard,
+  createTouchEndHandler,
+  isIosHomeScreenApp,
+  lockViewportScale,
+} from './tap-guard';
 
 describe('createDoubleTapGuard', () => {
   it('lets a single tap through', () => {
-    const guard = createDoubleTapGuard();
-    expect(guard({ t: 1000, x: 50, y: 50 })).toBe(false);
+    expect(createDoubleTapGuard()(1000)).toBe(false);
   });
 
-  it('blocks the second tap of a quick double tap at the same spot', () => {
+  it('blocks the second tap of a quick double tap', () => {
     const guard = createDoubleTapGuard();
-    guard({ t: 1000, x: 50, y: 50 });
-    expect(guard({ t: 1000 + DOUBLE_TAP_MS - 1, x: 55, y: 48 })).toBe(true);
+    guard(1000);
+    expect(guard(1000 + DOUBLE_TAP_MS - 1)).toBe(true);
   });
 
   it('lets slow taps through', () => {
     const guard = createDoubleTapGuard();
-    guard({ t: 1000, x: 50, y: 50 });
-    expect(guard({ t: 1000 + DOUBLE_TAP_MS + 1, x: 50, y: 50 })).toBe(false);
+    guard(1000);
+    expect(guard(1000 + DOUBLE_TAP_MS + 1)).toBe(false);
   });
 
-  it('lets quick taps at different spots through (e.g. two gems)', () => {
+  it('keeps blocking every tap in a rapid burst', () => {
     const guard = createDoubleTapGuard();
-    guard({ t: 1000, x: 50, y: 50 });
-    expect(guard({ t: 1100, x: 50 + DOUBLE_TAP_PX + 1, y: 50 })).toBe(false);
-  });
-
-  it('treats a blocked tap as consumed, so a triple tap blocks taps 2 and 3 only in pairs', () => {
-    const guard = createDoubleTapGuard();
-    expect(guard({ t: 1000, x: 50, y: 50 })).toBe(false);
-    expect(guard({ t: 1100, x: 50, y: 50 })).toBe(true);
-    // The third tap starts a new pair: it is compared against the blocked one, which
-    // iOS has already discarded as a zoom gesture, so it is let through.
-    expect(guard({ t: 1200, x: 50, y: 50 })).toBe(false);
+    expect(guard(1000)).toBe(false);
+    expect(guard(1100)).toBe(true);
+    expect(guard(1200)).toBe(true);
+    expect(guard(1300)).toBe(true);
   });
 });
 
@@ -49,16 +48,79 @@ describe('lockViewportScale', () => {
   });
 });
 
-describe('isStandalone', () => {
-  it('detects iOS home-screen apps via navigator.standalone', () => {
-    expect(isStandalone({ standalone: true }, () => false)).toBe(true);
+describe('isIosHomeScreenApp', () => {
+  it('is true for an iOS home-screen app', () => {
+    expect(isIosHomeScreenApp({ standalone: true })).toBe(true);
   });
 
-  it('detects installed apps via the display-mode media query', () => {
-    expect(isStandalone({}, (q) => q === '(display-mode: standalone)')).toBe(true);
+  it('is false in a Safari tab and on other platforms (no navigator.standalone)', () => {
+    expect(isIosHomeScreenApp({ standalone: false })).toBe(false);
+    expect(isIosHomeScreenApp({})).toBe(false);
+  });
+});
+
+describe('createTouchEndHandler', () => {
+  /** A fake touchend whose target resolves `closest(CLICKABLE)` to `control` (or null). */
+  function touchEnd(t: number, control: { click(): void } | null, opts: { touches?: number; changed?: number } = {}) {
+    const ev = {
+      timeStamp: t,
+      touches: { length: opts.touches ?? 0 },
+      changedTouches: { length: opts.changed ?? 1 },
+      target: { closest: (sel: string) => (sel === CLICKABLE ? control : null) },
+      prevented: false,
+      preventDefault() {
+        ev.prevented = true;
+      },
+    };
+    return ev;
+  }
+  const control = () => {
+    const c = { clicks: 0, click: () => c.clicks++ };
+    return c;
+  };
+
+  it('does nothing to a single tap', () => {
+    const handle = createTouchEndHandler();
+    const btn = control();
+    const ev = touchEnd(1000, btn);
+    handle(ev);
+    expect(ev.prevented).toBe(false);
+    expect(btn.clicks).toBe(0); // the browser's own click still fires
   });
 
-  it('is false in a normal browser tab', () => {
-    expect(isStandalone({ standalone: false }, () => false)).toBe(false);
+  it('cancels the second quick tap and replays the click on the control it hit', () => {
+    const handle = createTouchEndHandler();
+    const btn = control();
+    handle(touchEnd(1000, btn));
+    const second = touchEnd(1100, btn);
+    handle(second);
+    expect(second.prevented).toBe(true);
+    expect(btn.clicks).toBe(1);
+  });
+
+  it('cancels a quick second tap on a non-control without clicking anything', () => {
+    const handle = createTouchEndHandler();
+    handle(touchEnd(1000, null));
+    const second = touchEnd(1100, null);
+    expect(() => handle(second)).not.toThrow();
+    expect(second.prevented).toBe(true);
+  });
+
+  it('ignores multi-touch (pinch) ends', () => {
+    const handle = createTouchEndHandler();
+    handle(touchEnd(1000, null));
+    const lifted = touchEnd(1100, null, { touches: 1 });
+    handle(lifted);
+    expect(lifted.prevented).toBe(false);
+    const twoAtOnce = touchEnd(1150, null, { changed: 2 });
+    handle(twoAtOnce);
+    expect(twoAtOnce.prevented).toBe(false);
+  });
+
+  it('copes with a target that is not an element', () => {
+    const handle = createTouchEndHandler();
+    handle(touchEnd(1000, null));
+    const ev = { ...touchEnd(1100, null), target: null };
+    expect(() => handle(ev)).not.toThrow();
   });
 });
