@@ -354,7 +354,10 @@ function newGame(): void {
 // ---- Pause / resume ----
 const roundState = () => ({ started: clock.isStarted, timeUp, paused });
 
-/** The pause button works only while a round is running (after the first swap, before time's up). */
+/**
+ * The pause button works only while a round is running (after the first swap, before
+ * time's up). Its aria-label (Pause/Resume) is owned here, not by data-i18n-label.
+ */
 function syncPauseButton(): void {
   pauseBtn.disabled = !paused && !canPause(roundState());
   pauseBtn.dataset.paused = String(paused);

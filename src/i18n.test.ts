@@ -66,6 +66,7 @@ describe('index.html', () => {
   it('ships the English text, so the page reads right before scripts run', () => {
     for (const { key, text } of tagged) expect(text, key).toBe(MESSAGES.en[key as MessageKey]);
     for (const { tag, label, key } of labelled) {
+      if (tag.includes('id="pause"')) continue; // main.ts owns it (Pause/Resume)
       expect(key, tag).toBeDefined();
       expect(label, tag).toBe(MESSAGES.en[key as MessageKey]);
     }
@@ -97,5 +98,42 @@ describe('detectLanguage', () => {
   it('follows the first listed language it supports', () => {
     expect(detectLanguage(['fr', 'zh-CN', 'en'])).toBe('zh-CN');
     expect(detectLanguage(['en-US', 'zh-CN'])).toBe('en');
+  });
+});
+
+describe('index.html head script (language before first paint)', () => {
+  const source = html.match(/<script>([\s\S]*?)<\/script>/)![1];
+  function run(saved: unknown, languages: string[], language = languages[0]) {
+    const root = { dataset: {} as Record<string, string>, lang: '' };
+    const storage = { getItem: () => (saved === undefined ? null : JSON.stringify(saved)) };
+    new Function('document', 'localStorage', 'navigator', source)({ documentElement: root }, storage, { languages, language });
+    return root;
+  }
+
+  it('agrees with detectLanguage when nothing is saved', () => {
+    for (const prefs of [[], ['zh-CN'], ['zh-TW'], ['en-US', 'zh-CN'], ['fr', 'zh-Hans'], ['fr', 'de'], ['ZH']]) {
+      expect(run(undefined, prefs).lang, prefs.join()).toBe(detectLanguage(prefs));
+    }
+  });
+
+  it('prefers a valid saved language and ignores an invalid one', () => {
+    expect(run({ language: 'en' }, ['zh-CN']).lang).toBe('en');
+    expect(run({ language: 'zh-CN' }, ['en']).lang).toBe('zh-CN');
+    expect(run({ language: 'klingon' }, ['zh-CN']).lang).toBe('zh-CN');
+    expect(run(null, ['zh-CN']).lang).toBe('zh-CN');
+  });
+
+  it('hides the page until translated only when the language is not English', () => {
+    expect('i18nPending' in run(undefined, ['zh-CN']).dataset).toBe(true);
+    expect('i18nPending' in run(undefined, ['en']).dataset).toBe(false);
+    expect('i18nPending' in run({ language: 'en' }, ['zh-CN']).dataset).toBe(false);
+  });
+
+  it('still applies the saved theme', () => {
+    expect(run({ theme: 'dark' }, ['en']).dataset.theme).toBe('dark');
+  });
+
+  it('pairs the pending flag with a rule that hides the body', () => {
+    expect(html).toMatch(/html\[data-i18n-pending\] body \{ visibility: hidden; \}/);
   });
 });

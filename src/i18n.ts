@@ -54,7 +54,7 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     score: '得分',
     best: '最高分',
     time: '时间',
-    gameBoard: '游戏棋盘',
+    gameBoard: '游戏面板',
     paused: '已暂停',
     clockStopped: '计时已停止。',
     resume: '继续',
@@ -69,16 +69,16 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     closeSettings: '关闭设置',
     theme: '主题',
     themeNeon: '霓虹',
-    themePastel: '柔彩',
+    themePastel: '粉彩',
     themeDark: '深色',
-    timeLimit: '时间限制',
-    timeLimitNote: '从下一局开始生效；如果本局还没走第一步，则立即生效。每得 1,000 分加 20 秒。',
+    timeLimit: '每局时长',
+    timeLimitNote: '从下一局开始生效；如果本局还没走第一步，则立即生效。每得 1000 分加 20 秒。',
     minutes: '{n} 分钟',
     language: '语言',
     done: '完成',
     cascade: '连锁 ×{n}',
     bonusTime: '+{s}秒',
-    noMoves: '无路可走 · 重新洗牌',
+    noMoves: '没有可走的步了 · 重新洗牌',
   },
 };
 
@@ -112,7 +112,11 @@ export function detectLanguage(preferred: readonly string[]): Language {
  * [data-i18n-label] ones, and the lang attribute. A data-i18n-n attribute fills {n}.
  */
 export function applyLanguage(lang: Language, root: ParentNode = document): void {
-  if (root === document) document.documentElement.lang = lang;
+  if (root === document) {
+    document.documentElement.lang = lang;
+    // Set by the inline script in index.html to hide English text until translated.
+    delete document.documentElement.dataset.i18nPending;
+  }
   for (const el of root.querySelectorAll<HTMLElement>('[data-i18n]')) {
     const n = el.dataset.i18nN;
     el.textContent = t(lang, el.dataset.i18n as MessageKey, n === undefined ? {} : { n });
