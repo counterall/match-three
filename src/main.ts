@@ -17,6 +17,7 @@ import {
   type Spawn,
 } from './board';
 import { gemSvg, installGemDefs } from './gems';
+import { t } from './i18n';
 import { initSettings } from './settings-ui';
 import { installStandaloneZoomGuards } from './tap-guard';
 import { Countdown, bonusSeconds, formatTime } from './timer';
@@ -146,12 +147,12 @@ function elAt(p: Pos): HTMLDivElement | undefined {
 
 function setScore(value: number): void {
   score = value;
-  scoreEl.textContent = score.toLocaleString();
+  scoreEl.textContent = score.toLocaleString(settings.language);
   if (score > best) {
     best = score;
     saveBest();
   }
-  bestEl.textContent = best.toLocaleString();
+  bestEl.textContent = best.toLocaleString(settings.language);
 }
 
 let toastTimer = 0;
@@ -256,11 +257,11 @@ async function resolveCascades(token: number): Promise<void> {
     floatPoints(cells, points, type);
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
-    const messages = cascade >= 2 ? [`Cascade ×${cascade}`] : [];
+    const messages = cascade >= 2 ? [t(settings.language, 'cascade', { n: cascade })] : [];
     // add() refuses once the clock has run out, even if the tick hasn't noticed yet.
     if (bonus > 0 && clock.add(bonus * 1000, performance.now())) {
       flashTimeBonus();
-      messages.push(`+${bonus}s`);
+      messages.push(t(settings.language, 'bonusTime', { s: bonus }));
     }
     if (messages.length > 0) toast(messages.join(' · '));
 
@@ -281,7 +282,7 @@ async function resolveCascades(token: number): Promise<void> {
   }
 
   if (!findMove(grid)) {
-    toast('No moves left · shuffling', 1400);
+    toast(t(settings.language, 'noMoves'), 1400);
     await wait(700);
     if (token !== gameToken) return;
     shuffle(grid);
@@ -321,7 +322,7 @@ function endRound(): void {
 function showGameOver(): void {
   clearTimeout(hintTimer);
   clearHint();
-  finalScoreEl.textContent = score.toLocaleString();
+  finalScoreEl.textContent = score.toLocaleString(settings.language);
   newBestEl.hidden = !(score > bestAtStart && score > 0);
   gameOverEl.hidden = false;
   playAgainBtn.focus();
@@ -353,11 +354,14 @@ function newGame(): void {
 // ---- Pause / resume ----
 const roundState = () => ({ started: clock.isStarted, timeUp, paused });
 
-/** The pause button works only while a round is running (after the first swap, before time's up). */
+/**
+ * The pause button works only while a round is running (after the first swap, before
+ * time's up). Its aria-label (Pause/Resume) is owned here, not by data-i18n-label.
+ */
 function syncPauseButton(): void {
   pauseBtn.disabled = !paused && !canPause(roundState());
   pauseBtn.dataset.paused = String(paused);
-  pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+  pauseBtn.setAttribute('aria-label', t(settings.language, paused ? 'resume' : 'pause'));
 }
 
 function setPaused(on: boolean): void {
@@ -482,6 +486,12 @@ const settings = initSettings({
       clock.reset(minutes * 60_000);
       updateClock();
     }
+  },
+  // Static text is already translated; refresh what main.ts writes itself.
+  onLanguageChange() {
+    syncPauseButton();
+    setScore(score);
+    if (!gameOverEl.hidden) finalScoreEl.textContent = score.toLocaleString(settings.language);
   },
 });
 if (document.hidden) clock.hold('hidden', performance.now());

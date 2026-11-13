@@ -126,7 +126,8 @@
    ========================================================================= */
 
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* CJK faces after the Latin ones, for Simplified Chinese text. */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
 }
 
 /* No double-tap zoom anywhere: quick taps on gems or buttons must not zoom the page
@@ -745,10 +746,11 @@ button:disabled {
   color: var(--accent);
 }
 
-/* ---- Pill picker (time limit) ---- */
+/* ---- Pill pickers (time limit, language): one equal-width row, however many options ---- */
 .pill-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 10px;
 }
 

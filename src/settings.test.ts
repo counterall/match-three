@@ -40,11 +40,34 @@ describe('time limit setting', () => {
   });
 
   it('keeps settings saved before time limits existed working', () => {
-    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3 });
+    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3, language: 'en' });
   });
 
   it('parses theme and time limit independently', () => {
-    expect(parseSettings('{"theme":"rainbow","timeLimit":10}')).toEqual({ theme: 'neon', timeLimit: 10 });
-    expect(parseSettings('{"theme":"dark","timeLimit":7}')).toEqual({ theme: 'dark', timeLimit: 3 });
+    expect(parseSettings('{"theme":"rainbow","timeLimit":10}')).toMatchObject({ theme: 'neon', timeLimit: 10 });
+    expect(parseSettings('{"theme":"dark","timeLimit":7}')).toMatchObject({ theme: 'dark', timeLimit: 3 });
+  });
+});
+
+describe('language setting', () => {
+  it('defaults to English', () => {
+    expect(DEFAULT_SETTINGS.language).toBe('en');
+    expect(parseSettings(null).language).toBe('en');
+  });
+
+  it('keeps a valid saved language', () => {
+    expect(parseSettings('{"language":"zh-CN"}').language).toBe('zh-CN');
+    expect(parseSettings('{"language":"en"}', 'zh-CN').language).toBe('en');
+  });
+
+  it('uses the given fallback (the browser language) when nothing valid is saved', () => {
+    expect(parseSettings(null, 'zh-CN').language).toBe('zh-CN');
+    expect(parseSettings('{"language":"klingon"}', 'zh-CN').language).toBe('zh-CN');
+    expect(parseSettings('{"language":"fr"}').language).toBe('en');
+  });
+
+  it('keeps older saved settings working, and parses language independently', () => {
+    expect(parseSettings('{"theme":"dark","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'dark', timeLimit: 5, language: 'zh-CN' });
+    expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN' });
   });
 });
