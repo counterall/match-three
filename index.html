@@ -58,9 +58,11 @@
         <div id="board" class="board" role="grid" aria-label="Game board" data-i18n-label="gameBoard"></div>
         <div id="toast" class="toast" aria-live="polite"></div>
         <div id="paused" class="overlay paused" role="dialog" aria-labelledby="paused-title" hidden>
-          <h2 id="paused-title" data-i18n="paused">Paused</h2>
-          <p class="overlay-note" data-i18n="clockStopped">The clock is stopped.</p>
-          <button id="resume" type="button" data-i18n="resume">Resume</button>
+          <div class="overlay-card">
+            <h2 id="paused-title" data-i18n="paused">Paused</h2>
+            <p class="overlay-note" data-i18n="clockStopped">The clock is stopped.</p>
+            <button id="resume" type="button" data-i18n="resume">Resume</button>
+          </div>
         </div>
         <div id="game-over" class="overlay game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
           <h2 id="game-over-title" data-i18n="timesUp">Time's up</h2>

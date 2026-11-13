@@ -10,7 +10,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Match:** a swap only counts if it makes a line of 3 or more. Otherwise the gems slide back.
 - **Score:** 10 points per gem cleared, plus 20 for each gem beyond 3 in a line. Every cascade step multiplies the points (×2, ×3, …).
 - **Time limit:** each round lasts 3 minutes by default (5 or 10 in Settings). The clock starts with your first move and pauses while Settings is open or the tab is hidden. Every 1,000 points adds 20 seconds. When time runs out, a cascade already falling still scores, then the round ends and **Play again** starts a new one.
-- **Pause:** once the clock is running, tap the pause button (left of **Hint**) to stop it. The board is hidden while paused; tap **Resume** (or the button again) to carry on. Switching away (another tab, or minimising the home-screen app on iOS/Android) pauses automatically.
+- **Pause:** once the clock is running, tap the pause button (left of **Hint**) to stop it. The board stays visible, lightly dimmed, but you can't move while paused; tap **Resume** (or the button again) to carry on. Switching away (another tab, or minimising the home-screen app on iOS/Android) pauses automatically.
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
