@@ -15,10 +15,12 @@
     <meta name="apple-mobile-web-app-title" content="Neon Cascade" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <script>
-      // Apply the saved theme before first paint to avoid a flash of the default theme.
+      // Apply the saved theme (and page language) before first paint to avoid a flash
+      // of the defaults. The text itself is translated by src/i18n.ts.
       try {
-        var t = JSON.parse(localStorage.getItem('neon-cascade:settings') || '{}').theme;
-        if (typeof t === 'string') document.documentElement.dataset.theme = t;
+        var s = JSON.parse(localStorage.getItem('neon-cascade:settings') || '{}');
+        if (typeof s.theme === 'string') document.documentElement.dataset.theme = s.theme;
+        if (typeof s.language === 'string') document.documentElement.lang = s.language;
       } catch (e) {}
     </script>
   </head>
@@ -27,59 +29,64 @@
       <header class="hud">
         <h1 class="title">Neon<span>Cascade</span></h1>
         <div class="stats">
-          <div class="stat"><span class="label">Score</span><span id="score" class="value">0</span></div>
-          <div class="stat"><span class="label">Best</span><span id="best" class="value">0</span></div>
-          <div id="time-stat" class="stat"><span class="label">Time</span><span id="time" class="value" role="timer">3:00</span></div>
+          <div class="stat"><span class="label" data-i18n="score">Score</span><span id="score" class="value">0</span></div>
+          <div class="stat"><span class="label" data-i18n="best">Best</span><span id="best" class="value">0</span></div>
+          <div id="time-stat" class="stat"><span class="label" data-i18n="time">Time</span><span id="time" class="value" role="timer">3:00</span></div>
         </div>
       </header>
 
       <div class="board-wrap">
-        <div id="board" class="board" role="grid" aria-label="Game board"></div>
+        <div id="board" class="board" role="grid" aria-label="Game board" data-i18n-label="gameBoard"></div>
         <div id="toast" class="toast" aria-live="polite"></div>
         <div id="paused" class="overlay paused" role="dialog" aria-labelledby="paused-title" hidden>
-          <h2 id="paused-title">Paused</h2>
-          <p class="overlay-note">The clock is stopped.</p>
-          <button id="resume" type="button">Resume</button>
+          <h2 id="paused-title" data-i18n="paused">Paused</h2>
+          <p class="overlay-note" data-i18n="clockStopped">The clock is stopped.</p>
+          <button id="resume" type="button" data-i18n="resume">Resume</button>
         </div>
         <div id="game-over" class="overlay game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
-          <h2 id="game-over-title">Time's up</h2>
-          <p id="final-score-line" class="final"><span class="label">Final score</span><span id="final-score" class="value">0</span></p>
-          <p id="new-best" class="new-best" hidden>New best!</p>
-          <button id="play-again" type="button">Play again</button>
+          <h2 id="game-over-title" data-i18n="timesUp">Time's up</h2>
+          <p id="final-score-line" class="final"><span class="label" data-i18n="finalScore">Final score</span><span id="final-score" class="value">0</span></p>
+          <p id="new-best" class="new-best" data-i18n="newBest" hidden>New best!</p>
+          <button id="play-again" type="button" data-i18n="playAgain">Play again</button>
         </div>
       </div>
 
       <footer class="controls">
-        <button id="pause" class="icon-btn" type="button" aria-label="Pause" data-paused="false" disabled>
+        <button id="pause" class="icon-btn" type="button" aria-label="Pause" data-i18n-label="pause" data-paused="false" disabled>
           <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
           <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
         </button>
-        <button id="hint" type="button">Hint</button>
-        <button id="new-game" type="button">New game</button>
-        <button id="open-settings" type="button" aria-haspopup="dialog">Settings</button>
+        <button id="hint" type="button" data-i18n="hint">Hint</button>
+        <button id="new-game" type="button" data-i18n="newGame">New game</button>
+        <button id="open-settings" type="button" aria-haspopup="dialog" data-i18n="settings">Settings</button>
       </footer>
     </main>
 
     <dialog id="settings" class="settings" aria-labelledby="settings-title">
       <form method="dialog" class="settings-panel">
         <header class="settings-header">
-          <h2 id="settings-title">Settings</h2>
-          <button class="close-btn" value="close" aria-label="Close settings">&times;</button>
+          <h2 id="settings-title" data-i18n="settings">Settings</h2>
+          <button class="close-btn" value="close" aria-label="Close settings" data-i18n-label="closeSettings">&times;</button>
         </header>
 
         <section class="settings-section">
-          <h3>Theme</h3>
-          <div id="theme-options" class="theme-grid" role="radiogroup" aria-label="Theme"></div>
+          <h3 id="theme-title" data-i18n="theme">Theme</h3>
+          <div id="theme-options" class="theme-grid" role="radiogroup" aria-labelledby="theme-title"></div>
         </section>
 
         <section class="settings-section">
-          <h3 id="time-limit-title">Time limit</h3>
+          <h3 id="time-limit-title" data-i18n="timeLimit">Time limit</h3>
           <div id="time-options" class="pill-group" role="radiogroup" aria-labelledby="time-limit-title"></div>
-          <p class="settings-note">Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.</p>
+          <p class="settings-note" data-i18n="timeLimitNote">Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3 id="language-title" data-i18n="language">Language</h3>
+          <div id="language-options" class="pill-group" role="radiogroup" aria-labelledby="language-title"></div>
         </section>
 
         <footer class="settings-footer">
-          <button value="close">Done</button>
+          <button value="close" data-i18n="done">Done</button>
         </footer>
       </form>
     </dialog>

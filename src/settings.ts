@@ -1,19 +1,17 @@
 // Player settings: pure parsing/validation here, DOM wiring in settings-ui.ts.
 
+import { DEFAULT_LANGUAGE, detectLanguage, isLanguage, type Language, type MessageKey } from './i18n';
+
 export const THEMES = [
-  { id: 'neon', label: 'Neon' },
-  { id: 'pastel', label: 'Pastel' },
-  { id: 'dark', label: 'Dark' },
-] as const;
+  { id: 'neon', labelKey: 'themeNeon' },
+  { id: 'pastel', labelKey: 'themePastel' },
+  { id: 'dark', labelKey: 'themeDark' },
+] as const satisfies readonly { id: string; labelKey: MessageKey }[];
 
 export type ThemeId = (typeof THEMES)[number]['id'];
 
-/** Round length options, in minutes. */
-export const TIME_LIMITS = [
-  { minutes: 3, label: '3 min' },
-  { minutes: 5, label: '5 min' },
-  { minutes: 10, label: '10 min' },
-] as const;
+/** Round length options, in minutes (labelled with the 'minutes' message). */
+export const TIME_LIMITS = [{ minutes: 3 }, { minutes: 5 }, { minutes: 10 }] as const;
 
 export type TimeLimit = (typeof TIME_LIMITS)[number]['minutes'];
 
@@ -21,11 +19,12 @@ export interface Settings {
   theme: ThemeId;
   /** Round length in minutes. */
   timeLimit: TimeLimit;
+  language: Language;
 }
 
 export const SETTINGS_KEY = 'neon-cascade:settings';
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3 };
+export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3, language: DEFAULT_LANGUAGE };
 
 export function isThemeId(value: unknown): value is ThemeId {
   return THEMES.some((t) => t.id === value);
@@ -35,8 +34,11 @@ export function isTimeLimit(value: unknown): value is TimeLimit {
   return TIME_LIMITS.some((t) => t.minutes === value);
 }
 
-/** Parses stored settings, falling back to defaults for anything missing or invalid. */
-export function parseSettings(raw: string | null): Settings {
+/**
+ * Parses stored settings, falling back to defaults for anything missing or invalid.
+ * `fallbackLanguage` (normally the browser's language) is used when none is saved.
+ */
+export function parseSettings(raw: string | null, fallbackLanguage: Language = DEFAULT_SETTINGS.language): Settings {
   let data: unknown;
   try {
     data = raw ? JSON.parse(raw) : {};
@@ -47,15 +49,22 @@ export function parseSettings(raw: string | null): Settings {
   return {
     theme: isThemeId(obj.theme) ? obj.theme : DEFAULT_SETTINGS.theme,
     timeLimit: isTimeLimit(obj.timeLimit) ? obj.timeLimit : DEFAULT_SETTINGS.timeLimit,
+    language: isLanguage(obj.language) ? obj.language : fallbackLanguage,
   };
 }
 
+function browserLanguage(): Language {
+  return detectLanguage(navigator.languages?.length ? navigator.languages : [navigator.language ?? '']);
+}
+
 export function loadSettings(): Settings {
+  let raw: string | null = null;
   try {
-    return parseSettings(localStorage.getItem(SETTINGS_KEY));
+    raw = localStorage.getItem(SETTINGS_KEY);
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    /* storage unavailable; use defaults */
   }
+  return parseSettings(raw, browserLanguage());
 }
 
 export function saveSettings(settings: Settings): void {

@@ -126,7 +126,8 @@
    ========================================================================= */
 
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* CJK faces after the Latin ones, for Simplified Chinese text. */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
 }
 
 /* No double-tap zoom anywhere: quick taps on gems or buttons must not zoom the page

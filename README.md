@@ -16,7 +16,8 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
 - **No accidental zoom:** tapping quickly on a phone never zooms the page. In a browser tab, pinch zoom still works outside the board. In the home-screen app, the page doesn't zoom at all, like a native app.
 - Your best score is saved in the browser.
-- **Settings:** pick a colour theme (Neon, Pastel or Dark, black & white) and the round's time limit. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
+- **Settings:** pick a colour theme (Neon, Pastel or Dark, black & white), the round's time limit and the language. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
+- **Languages:** English and Simplified Chinese (简体中文). The first visit follows your browser's language (any Chinese variant gets Simplified Chinese, everything else English). Switching in Settings changes the page straight away.
 - **Home screen:** on a phone, use *Share → Add to Home Screen* (iOS) or *Add to Home screen / Install app* (Android) to get a Neon Cascade app icon that opens full screen.
 
 ## Getting started
@@ -51,9 +52,10 @@ src/
   board.ts          Pure game logic: matching, gravity, refill, moves, shuffle
   board.test.ts     Unit tests for the game logic
   gems.ts           Gem SVG shapes (colours come from the theme)
-  settings.ts       Settings model: themes, time limits, parsing, persistence
+  settings.ts       Settings model: themes, time limits, language, parsing, persistence
+  i18n.ts           UI text in English and Simplified Chinese, browser-language detection
   pause.ts          Pause rules (when pausing is allowed, auto-pause on hide)
-  settings-ui.ts    Settings popup (theme and time-limit pickers)
+  settings-ui.ts    Settings popup (theme, time-limit and language pickers)
   timer.ts          Round timer rules: countdown with pauses, time bonus, m:ss
   main.ts           Rendering, input, animations and game flow
   style.css         Theme tokens, layout and animations
