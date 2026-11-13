@@ -482,11 +482,25 @@ body {
   display: none;
 }
 
-/* Paused: hide the board well enough that it can't be studied while the clock is stopped. */
+/* Paused: only a light tint, so the board stays visible underneath (issue #15); the
+   text sits on its own solid card so it stays readable over the gems. */
 .paused {
-  background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--panel-solid) 45%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 20px 28px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-solid);
+  box-shadow: 0 0 calc(18px * var(--glow)) color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .overlay-note {
