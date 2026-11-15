@@ -1,10 +1,15 @@
 name: Deploy to GitHub Pages
 
+# Changes that touch only Markdown (README, CLAUDE.md, docs) neither build nor
+# deploy: the site doesn't include them. A push or PR that also changes anything
+# else still runs everything. workflow_dispatch can always force a deploy.
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md']
   pull_request:
     branches: [main]
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
 
 permissions:
