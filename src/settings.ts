@@ -15,19 +15,32 @@ export const TIME_LIMITS = [{ minutes: 3 }, { minutes: 5 }, { minutes: 10 }] as 
 
 export type TimeLimit = (typeof TIME_LIMITS)[number]['minutes'];
 
+/** How gems are drawn: the geometric shapes, or animal faces (see animals.ts). */
+export const GEM_STYLES = [
+  { id: 'shapes', labelKey: 'gemStyleShapes' },
+  { id: 'animals', labelKey: 'gemStyleAnimals' },
+] as const satisfies readonly { id: string; labelKey: MessageKey }[];
+
+export type GemStyleId = (typeof GEM_STYLES)[number]['id'];
+
 export interface Settings {
   theme: ThemeId;
   /** Round length in minutes. */
   timeLimit: TimeLimit;
   language: Language;
+  gemStyle: GemStyleId;
 }
 
 export const SETTINGS_KEY = 'neon-cascade:settings';
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3, language: DEFAULT_LANGUAGE };
+export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3, language: DEFAULT_LANGUAGE, gemStyle: 'shapes' };
 
 export function isThemeId(value: unknown): value is ThemeId {
   return THEMES.some((t) => t.id === value);
+}
+
+export function isGemStyle(value: unknown): value is GemStyleId {
+  return GEM_STYLES.some((g) => g.id === value);
 }
 
 export function isTimeLimit(value: unknown): value is TimeLimit {
@@ -50,6 +63,7 @@ export function parseSettings(raw: string | null, fallbackLanguage: Language = D
     theme: isThemeId(obj.theme) ? obj.theme : DEFAULT_SETTINGS.theme,
     timeLimit: isTimeLimit(obj.timeLimit) ? obj.timeLimit : DEFAULT_SETTINGS.timeLimit,
     language: isLanguage(obj.language) ? obj.language : fallbackLanguage,
+    gemStyle: isGemStyle(obj.gemStyle) ? obj.gemStyle : DEFAULT_SETTINGS.gemStyle,
   };
 }
 

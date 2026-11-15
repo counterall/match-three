@@ -8,6 +8,9 @@
 // "no colours outside the theme tokens"; themes control their strength via
 // --gem-shade / --gem-gloss.
 
+import { animalSvg } from './animals';
+import type { GemStyleId } from './settings';
+
 interface GemShape {
   /** SVG element(s) in a 100x100 viewBox. */
   shape: string;
@@ -38,7 +41,9 @@ const SHAPES: GemShape[] = [
 
 export const GEM_DEFS_ID = 'gem-defs';
 
-export function gemSvg(type: number): string {
+/** SVG for one gem in the given style (see animals.ts for the animal faces). */
+export function gemSvg(type: number, style: GemStyleId = 'shapes'): string {
+  if (style === 'animals') return animalSvg(type);
   const { shape, cx, cy, gx = cx - 13, gy = cy - 17 } = SHAPES[type];
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
     <g class="gem-body">${shape}</g>
@@ -50,15 +55,17 @@ export function gemSvg(type: number): string {
 }
 
 /**
- * Shared <defs> for all gems: per-type clip paths plus the shading and gloss
- * gradients. Hidden with zero size rather than display:none, which would stop
- * gradients resolving in some browsers.
+ * Shared <defs> for all gems: per-type clip paths, the shading and gloss
+ * gradients, and the right-half clip for the animals' shaded side. Hidden with
+ * zero size rather than display:none, which would stop gradients resolving in
+ * some browsers.
  */
 export function gemDefsSvg(): string {
   const clips = SHAPES.map((s, t) => `<clipPath id="gem-clip-${t}">${s.shape}</clipPath>`).join('');
   return `<svg id="${GEM_DEFS_ID}" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
     <defs>
       ${clips}
+      <clipPath id="gem-half-right"><rect x="50" y="-10" width="70" height="130"/></clipPath>
       <linearGradient id="gem-shade-grad" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#fff" stop-opacity="0.6"/>
         <stop offset="0.42" stop-color="#fff" stop-opacity="0"/>

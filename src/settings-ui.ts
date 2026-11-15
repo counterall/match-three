@@ -4,13 +4,16 @@
 import { gemSvg } from './gems';
 import { LANGUAGES, applyLanguage, isLanguage, t, type Language } from './i18n';
 import {
+  GEM_STYLES,
   THEMES,
   TIME_LIMITS,
   applyTheme,
+  isGemStyle,
   isThemeId,
   isTimeLimit,
   loadSettings,
   saveSettings,
+  type GemStyleId,
   type Settings,
   type TimeLimit,
 } from './settings';
@@ -23,6 +26,7 @@ export interface SettingsHooks {
   onTimeLimitChange?: (minutes: TimeLimit) => void;
   /** The page has already been translated when this runs. */
   onLanguageChange?: (language: Language) => void;
+  onGemStyleChange?: (style: GemStyleId) => void;
 }
 
 /** Wires up the settings dialog and returns the live settings object. */
@@ -34,6 +38,7 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
   const dialog = document.querySelector<HTMLDialogElement>('#settings')!;
   const openBtn = document.querySelector<HTMLButtonElement>('#open-settings')!;
   const themeGrid = dialog.querySelector<HTMLDivElement>('#theme-options')!;
+  const gemStyleGroup = dialog.querySelector<HTMLDivElement>('#gem-style-options')!;
   const timeGroup = dialog.querySelector<HTMLDivElement>('#time-options')!;
   const languageGroup = dialog.querySelector<HTMLDivElement>('#language-options')!;
 
@@ -42,9 +47,17 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
       <label class="theme-option" data-theme="${th.id}">
         <input type="radio" name="theme" value="${th.id}" ${th.id === settings.theme ? 'checked' : ''} />
         <span class="theme-preview">
-          ${PREVIEW_TYPES.map((type) => `<span class="mini-gem" data-type="${type}">${gemSvg(type)}</span>`).join('')}
+          ${PREVIEW_TYPES.map((type) => `<span class="mini-gem" data-type="${type}">${gemSvg(type, settings.gemStyle)}</span>`).join('')}
         </span>
         <span class="theme-name" data-i18n="${th.labelKey}">${t(lang, th.labelKey)}</span>
+      </label>`,
+  ).join('');
+
+  gemStyleGroup.innerHTML = GEM_STYLES.map(
+    (g) => `
+      <label class="pill-option">
+        <input type="radio" name="gem-style" value="${g.id}" ${g.id === settings.gemStyle ? 'checked' : ''} />
+        <span data-i18n="${g.labelKey}">${t(lang, g.labelKey)}</span>
       </label>`,
   ).join('');
 
@@ -73,6 +86,18 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
     settings.theme = value;
     applyTheme(value);
     saveSettings(settings);
+  });
+
+  gemStyleGroup.addEventListener('change', (e) => {
+    const value = (e.target as HTMLInputElement).value;
+    if (!isGemStyle(value)) return;
+    settings.gemStyle = value;
+    saveSettings(settings);
+    // The theme previews show gems in the chosen style too.
+    themeGrid.querySelectorAll<HTMLElement>('.mini-gem').forEach((el) => {
+      el.innerHTML = gemSvg(Number(el.dataset.type), value);
+    });
+    hooks.onGemStyleChange?.(value);
   });
 
   timeGroup.addEventListener('change', (e) => {

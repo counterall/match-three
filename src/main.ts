@@ -101,7 +101,7 @@ function createGemEl(id: number, type: number, row: number, col: number): HTMLDi
   el.className = 'gem';
   el.dataset.id = String(id);
   el.dataset.type = String(type);
-  el.innerHTML = gemSvg(type);
+  el.innerHTML = gemSvg(type, settings.gemStyle);
   place(el, row, col);
   boardEl.append(el);
   els.set(id, el);
@@ -485,6 +485,13 @@ const settings = initSettings({
     if (!clock.isStarted && !timeUp) {
       clock.reset(minutes * 60_000);
       updateClock();
+    }
+  },
+  // Redraw every gem on the board in the new style; positions and state are unchanged.
+  onGemStyleChange(style) {
+    for (const el of els.values()) {
+      // Popping gems are about to be removed; redrawing would restart their pop animation.
+      if (!el.classList.contains('pop')) el.innerHTML = gemSvg(Number(el.dataset.type), style);
     }
   },
   // Static text is already translated; refresh what main.ts writes itself.
