@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, TIME_LIMITS, parseSettings } from './settings';
+import { DEFAULT_SETTINGS, GEM_STYLES, TIME_LIMITS, parseSettings } from './settings';
 
 describe('parseSettings', () => {
   it('returns defaults for missing or malformed data', () => {
@@ -40,7 +40,7 @@ describe('time limit setting', () => {
   });
 
   it('keeps settings saved before time limits existed working', () => {
-    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3, language: 'en' });
+    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3, language: 'en', gemStyle: 'shapes' });
   });
 
   it('parses theme and time limit independently', () => {
@@ -67,7 +67,31 @@ describe('language setting', () => {
   });
 
   it('keeps older saved settings working, and parses language independently', () => {
-    expect(parseSettings('{"theme":"dark","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'dark', timeLimit: 5, language: 'zh-CN' });
-    expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN' });
+    expect(parseSettings('{"theme":"dark","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'dark', timeLimit: 5, language: 'zh-CN', gemStyle: 'shapes' });
+    expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN', gemStyle: 'shapes' });
+  });
+});
+
+describe('gem style setting', () => {
+  it('offers shapes and animals, defaulting to shapes', () => {
+    expect(GEM_STYLES.map((g) => g.id)).toEqual(['shapes', 'animals']);
+    expect(DEFAULT_SETTINGS.gemStyle).toBe('shapes');
+    expect(parseSettings(null).gemStyle).toBe('shapes');
+  });
+
+  it('keeps a valid saved gem style', () => {
+    expect(parseSettings('{"gemStyle":"animals"}').gemStyle).toBe('animals');
+    expect(parseSettings('{"gemStyle":"shapes"}').gemStyle).toBe('shapes');
+  });
+
+  it('falls back to shapes for invalid values', () => {
+    for (const v of ['"dogs"', '"Animals"', '1', 'null', 'true', '["animals"]']) {
+      expect(parseSettings(`{"gemStyle":${v}}`).gemStyle).toBe('shapes');
+    }
+  });
+
+  it('keeps older saved settings working, and parses gem style independently', () => {
+    expect(parseSettings('{"theme":"pastel","timeLimit":10,"language":"zh-CN"}').gemStyle).toBe('shapes');
+    expect(parseSettings('{"theme":"rainbow","gemStyle":"animals"}')).toMatchObject({ theme: 'neon', gemStyle: 'animals' });
   });
 });

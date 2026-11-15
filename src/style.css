@@ -24,6 +24,7 @@
   --glow: 1; /* multiplier for every neon glow; 0 = flat */
   --highlight: #fff; /* glow colour for selected / popping gems */
   --gem-fill-opacity: 0.5;
+  --gem-tile-opacity: 0.32; /* animal style: tile in the gem's colour behind each face */
   --gem-shade: 0.85; /* 3D layers: diagonal light/shadow and gloss */
   --gem-gloss: 0.85;
   --float-text: #fff;
@@ -56,6 +57,7 @@
   --glow: 0;
   --highlight: #7b6cd9;
   --gem-fill-opacity: 0.92;
+  --gem-tile-opacity: 0.55; /* animal style: tile in the gem's colour behind each face */
   --gem-shade: 0.6;
   --gem-gloss: 0.95;
   --float-text: #4a3f6b;
@@ -89,6 +91,7 @@
   --glow: 0.35;
   --highlight: #fff;
   --gem-fill-opacity: 1;
+  --gem-tile-opacity: 0.7; /* animal style: tile in the gem's colour behind each face */
   --gem-shade: 0.9;
   --gem-gloss: 0.9;
   --float-text: #fff;
@@ -333,6 +336,15 @@ body {
 
 .gem-gloss {
   opacity: var(--gem-gloss);
+}
+
+/* Animal gem style: the tile behind each face carries the gem type's theme colour,
+   so matching by colour still works (the faces keep natural colours). */
+.gem-tile {
+  fill: var(--fc); /* body colour: in Dark, the per-type greys keep the tiles apart */
+  fill-opacity: var(--gem-tile-opacity);
+  stroke: var(--c);
+  stroke-width: 3;
 }
 
 .gem:hover svg {
