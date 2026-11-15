@@ -162,8 +162,9 @@ body {
 }
 
 .app {
-  /* The board fills the column, so cap the column so the board's height fits the viewport. */
-  width: min(100%, 560px, calc((100dvh - var(--chrome)) * var(--cols) / var(--rows)));
+  /* The board fills the column. 728px = 1.3x the original 560px (91px gems on 8x8);
+     the height term keeps the whole board inside the viewport. */
+  width: min(100%, 728px, calc((100dvh - var(--chrome)) * var(--cols) / var(--rows)));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -204,7 +205,7 @@ body {
   gap: 8px;
 }
 
-/* Sized so the title and all three stats share one row in the 560px column. */
+/* Sized so the title and all three stats share one row in the column (capped at 728px). */
 .stat {
   min-width: 84px;
   padding: 6px 10px;
