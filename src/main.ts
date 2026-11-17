@@ -23,6 +23,8 @@ import { initSettings } from './settings-ui';
 import { installStandaloneZoomGuards } from './tap-guard';
 import { Countdown, bonusSeconds, formatTime } from './timer';
 import { canPause, shouldAutoPause } from './pause';
+import { loadBest, saveBest } from './best';
+import { DEFAULT_SETTINGS, type TimeLimit } from './settings';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -33,7 +35,6 @@ const FALL_PER_ROW_MS = reducedMotion ? 0 : 45;
 const HINT_DELAY_MS = 6000;
 const TICK_MS = 200; // how often the HUD clock refreshes
 const LOW_TIME_MS = 10_000; // the clock turns urgent below this
-const BEST_KEY = 'neon-cascade:best';
 
 // ---- Board layout: narrow (phone portrait) screens get fewer, bigger columns ----
 const compactQuery = window.matchMedia('(max-width: 600px)');
@@ -67,7 +68,8 @@ const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
 // ---- State ----
 let grid: Grid = [];
 let score = 0;
-let best = loadBest();
+let roundLimit: TimeLimit = DEFAULT_SETTINGS.timeLimit; // this round's length; set by setRoundLimit()
+let best = 0; // best score for rounds of roundLimit minutes (issue #22)
 let busy = false;
 let selected: Pos | null = null;
 let hintTimer = 0;
@@ -80,20 +82,14 @@ const els = new Map<number, HTMLDivElement>();
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function loadBest(): number {
-  try {
-    return Number(localStorage.getItem(BEST_KEY)) || 0;
-  } catch {
-    return 0;
-  }
-}
+const storage = () => window.localStorage;
 
-function saveBest(): void {
-  try {
-    localStorage.setItem(BEST_KEY, String(best));
-  } catch {
-    /* storage unavailable; best score just won't persist */
-  }
+/** Sets the round length whose best score the HUD shows and this round can beat. */
+function setRoundLimit(minutes: TimeLimit): void {
+  roundLimit = minutes;
+  best = loadBest(storage, minutes);
+  bestAtStart = best;
+  setScore(score);
 }
 
 // ---- Rendering ----
@@ -154,7 +150,7 @@ function setScore(value: number): void {
   scoreEl.textContent = score.toLocaleString(settings.language);
   if (score > best) {
     best = score;
-    saveBest();
+    saveBest(storage, roundLimit, best);
   }
   bestEl.textContent = best.toLocaleString(settings.language);
 }
@@ -343,14 +339,14 @@ function newGame(): void {
   // otherwise see the previous round's expired clock and end this one at once.
   clock.reset(settings.timeLimit * 60_000);
   setPaused(false);
-  bestAtStart = best;
   // Seven of the eight animals, in a random order, for every new game (issue #20).
   animalCast = drawCast(Math.random);
   const { rows, cols } = currentLayout();
   grid = createBoard(rows, cols);
   document.body.style.setProperty('--rows', String(rows));
   document.body.style.setProperty('--cols', String(cols));
-  setScore(0);
+  score = 0;
+  setRoundLimit(settings.timeLimit);
   rebuildBoard();
   resetIdle();
   updateClock();
@@ -490,6 +486,7 @@ const settings = initSettings({
   onTimeLimitChange(minutes) {
     if (!clock.isStarted && !timeUp) {
       clock.reset(minutes * 60_000);
+      setRoundLimit(minutes);
       updateClock();
     }
   },
