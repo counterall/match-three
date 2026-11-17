@@ -5,7 +5,6 @@ import { DEFAULT_LANGUAGE, detectLanguage, isLanguage, type Language, type Messa
 export const THEMES = [
   { id: 'neon', labelKey: 'themeNeon' },
   { id: 'pastel', labelKey: 'themePastel' },
-  { id: 'dark', labelKey: 'themeDark' },
 ] as const satisfies readonly { id: string; labelKey: MessageKey }[];
 
 export type ThemeId = (typeof THEMES)[number]['id'];

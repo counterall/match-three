@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import html from '../index.html?raw';
 import { LANGUAGES, MESSAGES, detectLanguage, isLanguage, t, type MessageKey } from './i18n';
+import { THEMES } from './settings';
 
 const keys = Object.keys(MESSAGES.en) as MessageKey[];
 
@@ -129,8 +130,19 @@ describe('index.html head script (language before first paint)', () => {
     expect('i18nPending' in run({ language: 'en' }, ['zh-CN']).dataset).toBe(false);
   });
 
-  it('still applies the saved theme', () => {
-    expect(run({ theme: 'dark' }, ['en']).dataset.theme).toBe('dark');
+  it('still applies a valid saved theme', () => {
+    for (const { id } of THEMES) expect(run({ theme: id }, ['en']).dataset.theme).toBe(id);
+  });
+
+  it('accepts exactly the themes in THEMES', () => {
+    const accepted = [...source.matchAll(/s\.theme === '([\w-]+)'/g)].map((m) => m[1]);
+    expect(accepted.sort()).toEqual(THEMES.map((th) => th.id).sort());
+  });
+
+  it('ignores a saved theme that no longer exists (e.g. the removed Dark)', () => {
+    for (const theme of ['dark', 'minimal', 'rainbow', 42]) {
+      expect(run({ theme }, ['en']).dataset.theme, String(theme)).toBeUndefined();
+    }
   });
 
   it('pairs the pending flag with a rule that hides the body', () => {
