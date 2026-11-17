@@ -67,4 +67,20 @@ describe('best score per time limit (issue #22)', () => {
     expect(mainSrc).toMatch(/from '\.\/best'/);
     expect(mainSrc).not.toContain("'neon-cascade:best'");
   });
+
+  /** Body of the `name(…) { … }` function or method declared in main.ts, up to its closing brace at that indent. */
+  function body(name: string): string {
+    const m = mainSrc.match(new RegExp(`\\n( *)(?:function )?${name}\\([^)]*\\)[^{;\\n]*\\{([\\s\\S]*?)\\n\\1\\}`));
+    if (!m) throw new Error(`no ${name} in main.ts`);
+    return m[2];
+  }
+
+  it('saves to the best of the limit the round started with, not the current setting', () => {
+    expect(body('setScore')).toMatch(/saveBest\(storage, roundLimit,/);
+  });
+
+  it('switches the best on a new game and on a limit change before the first move', () => {
+    expect(body('newGame')).toContain('setRoundLimit(settings.timeLimit)');
+    expect(body('onTimeLimitChange')).toContain('setRoundLimit(minutes)');
+  });
 });
