@@ -11,13 +11,14 @@ describe('parseSettings', () => {
 
   it('keeps a valid theme', () => {
     expect(parseSettings('{"theme":"pastel"}').theme).toBe('pastel');
-    expect(parseSettings('{"theme":"dark"}').theme).toBe('dark');
+    expect(parseSettings('{"theme":"neon"}').theme).toBe('neon');
   });
 
   it('rejects an unknown theme', () => {
     expect(parseSettings('{"theme":"rainbow"}').theme).toBe(DEFAULT_SETTINGS.theme);
-    // "minimal" was removed; players who had it saved fall back to the default.
+    // "minimal" and "dark" (issue #24) were removed; players who had them saved fall back to the default.
     expect(parseSettings('{"theme":"minimal"}').theme).toBe(DEFAULT_SETTINGS.theme);
+    expect(parseSettings('{"theme":"dark"}').theme).toBe(DEFAULT_SETTINGS.theme);
   });
 });
 
@@ -45,7 +46,7 @@ describe('time limit setting', () => {
 
   it('parses theme and time limit independently', () => {
     expect(parseSettings('{"theme":"rainbow","timeLimit":10}')).toMatchObject({ theme: 'neon', timeLimit: 10 });
-    expect(parseSettings('{"theme":"dark","timeLimit":7}')).toMatchObject({ theme: 'dark', timeLimit: 3 });
+    expect(parseSettings('{"theme":"pastel","timeLimit":7}')).toMatchObject({ theme: 'pastel', timeLimit: 3 });
   });
 });
 
@@ -67,7 +68,7 @@ describe('language setting', () => {
   });
 
   it('keeps older saved settings working, and parses language independently', () => {
-    expect(parseSettings('{"theme":"dark","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'dark', timeLimit: 5, language: 'zh-CN', gemStyle: 'shapes' });
+    expect(parseSettings('{"theme":"pastel","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'pastel', timeLimit: 5, language: 'zh-CN', gemStyle: 'shapes' });
     expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN', gemStyle: 'shapes' });
   });
 });

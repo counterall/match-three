@@ -34,7 +34,6 @@ const en = {
   theme: 'Theme',
   themeNeon: 'Neon',
   themePastel: 'Pastel',
-  themeDark: 'Dark',
   timeLimit: 'Time limit',
   timeLimitNote:
     "Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.",
@@ -73,7 +72,6 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     theme: '主题',
     themeNeon: '霓虹',
     themePastel: '粉彩',
-    themeDark: '深色',
     timeLimit: '每局时长',
     timeLimitNote: '从下一局开始生效；如果本局还没走第一步，则立即生效。每得 1000 分加 20 秒。',
     minutes: '{n} 分钟',

@@ -24,7 +24,8 @@
         try {
           s = JSON.parse(localStorage.getItem('neon-cascade:settings') || '{}') || {};
         } catch (e) {}
-        if (typeof s.theme === 'string') root.dataset.theme = s.theme;
+        // Only known themes (THEMES in src/settings.ts); a removed one keeps the default.
+        if (s.theme === 'neon' || s.theme === 'pastel') root.dataset.theme = s.theme;
         var lang = s.language;
         if (lang !== 'en' && lang !== 'zh-CN') {
           var prefs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']);

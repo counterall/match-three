@@ -70,47 +70,6 @@
   --gem-6: #f0848f;
 }
 
-/* Black & white: gems differ by shape, and by solid / half / hollow fill. */
-[data-theme='dark'] {
-  color-scheme: dark;
-  --bg: #000;
-  --bg-glow-1: rgba(255, 255, 255, 0.06);
-  --bg-glow-2: rgba(255, 255, 255, 0.04);
-  --panel: rgba(255, 255, 255, 0.06);
-  --panel-solid: #111;
-  --line: rgba(255, 255, 255, 0.18);
-  --text: #f2f2f2;
-  --muted: rgba(255, 255, 255, 0.55);
-  --accent: #fff;
-  --accent-2: rgba(255, 255, 255, 0.7);
-  --board-bg: rgba(255, 255, 255, 0.03);
-  --grid-line: rgba(255, 255, 255, 0.06);
-  --board-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --glow: 0.35;
-  --highlight: #fff;
-  --gem-fill-opacity: 1;
-  --gem-shade: 0.9;
-  --gem-gloss: 0.9;
-  --float-text: #fff;
-  --toast-bg: rgba(0, 0, 0, 0.85);
-
-  --gem-0: rgba(255, 255, 255, 0.95);
-  --gem-1: rgba(255, 255, 255, 0.85);
-  --gem-2: rgba(255, 255, 255, 0.9);
-  --gem-3: rgba(255, 255, 255, 0.8);
-  --gem-4: rgba(255, 255, 255, 0.95);
-  --gem-5: rgba(255, 255, 255, 0.85);
-  --gem-6: rgba(255, 255, 255, 0.9);
-  /* Opaque grey bodies (light / mid / near-black) so the 3D shading reads on them. */
-  --gem-0-body: #a3a3a3;
-  --gem-1-body: #141414;
-  --gem-2-body: #555;
-  --gem-3-body: #141414;
-  --gem-4-body: #a3a3a3;
-  --gem-5-body: #555;
-  --gem-6-body: #141414;
-}
-
 /* Gem colour (--c) and body fill colour (--fc; optional per-theme --gem-N-body,
    defaults to --c) by type. Used by gems, previews and score popups. */
 [data-type='0'] { --c: var(--gem-0); --fc: var(--gem-0-body, var(--c)); }
@@ -691,7 +650,7 @@ button:disabled {
 /* ---- Theme picker ---- */
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
