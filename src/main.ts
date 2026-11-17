@@ -16,6 +16,7 @@ import {
   type Pos,
   type Spawn,
 } from './board';
+import { DEFAULT_CAST, drawCast, type AnimalCast } from './animals';
 import { gemSvg, installGemDefs } from './gems';
 import { t } from './i18n';
 import { initSettings } from './settings-ui';
@@ -96,12 +97,15 @@ function saveBest(): void {
 }
 
 // ---- Rendering ----
+/** This game's animals (Animals gem style): drawn afresh by newGame(). */
+let animalCast: AnimalCast = DEFAULT_CAST;
+
 function createGemEl(id: number, type: number, row: number, col: number): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'gem';
   el.dataset.id = String(id);
   el.dataset.type = String(type);
-  el.innerHTML = gemSvg(type, settings.gemStyle);
+  el.innerHTML = gemSvg(type, settings.gemStyle, animalCast);
   place(el, row, col);
   boardEl.append(el);
   els.set(id, el);
@@ -340,6 +344,8 @@ function newGame(): void {
   clock.reset(settings.timeLimit * 60_000);
   setPaused(false);
   bestAtStart = best;
+  // Seven of the eight animals, in a random order, for every new game (issue #20).
+  animalCast = drawCast(Math.random);
   const { rows, cols } = currentLayout();
   grid = createBoard(rows, cols);
   document.body.style.setProperty('--rows', String(rows));
@@ -491,7 +497,7 @@ const settings = initSettings({
   onGemStyleChange(style) {
     for (const el of els.values()) {
       // Popping gems are about to be removed; redrawing would restart their pop animation.
-      if (!el.classList.contains('pop')) el.innerHTML = gemSvg(Number(el.dataset.type), style);
+      if (!el.classList.contains('pop')) el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast);
     }
   },
   // Static text is already translated; refresh what main.ts writes itself.

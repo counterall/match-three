@@ -8,7 +8,7 @@
 // "no colours outside the theme tokens"; themes control their strength via
 // --gem-shade / --gem-gloss.
 
-import { animalSvg } from './animals';
+import { ANIMAL_POOL, DEFAULT_CAST, animalSvg, type AnimalCast } from './animals';
 import type { GemStyleId } from './settings';
 
 interface GemShape {
@@ -41,9 +41,12 @@ const SHAPES: GemShape[] = [
 
 export const GEM_DEFS_ID = 'gem-defs';
 
-/** SVG for one gem in the given style (see animals.ts for the animal faces). */
-export function gemSvg(type: number, style: GemStyleId = 'shapes'): string {
-  if (style === 'animals') return animalSvg(type);
+/**
+ * SVG for one gem in the given style. For animals, `cast` says which pool animal
+ * draws each gem type (see animals.ts); shapes ignore it.
+ */
+export function gemSvg(type: number, style: GemStyleId = 'shapes', cast: AnimalCast = DEFAULT_CAST): string {
+  if (style === 'animals') return animalSvg(ANIMAL_POOL[cast[type]]);
   const { shape, cx, cy, gx = cx - 13, gy = cy - 17 } = SHAPES[type];
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
     <g class="gem-body">${shape}</g>
