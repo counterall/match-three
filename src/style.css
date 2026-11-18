@@ -36,6 +36,19 @@
   --gem-4: #ff8c1a;
   --gem-5: #b44dff;
   --gem-6: #ff3b5c;
+
+  /* Bomb gems (issue #28): body, metal parts, face, colour tint, blast */
+  --bomb-body: #2a2346;
+  --bomb-rim: #8f7dff;
+  --bomb-cap: #9aa0b8;
+  --bomb-fuse: #c9a46a;
+  --bomb-fuse-band: #7a5a2e;
+  --bomb-face: #ffffff;
+  --bomb-eye: #ff3b30;
+  --bomb-mouth: #ff2bd6;
+  --bomb-tint: 0.45;
+  --blast-core: rgba(255, 255, 255, 0.95);
+  --blast-edge: rgba(255, 140, 26, 0.55);
 }
 
 [data-theme='pastel'] {
@@ -68,6 +81,18 @@
   --gem-4: #f5a97f;
   --gem-5: #b39cf0;
   --gem-6: #f0848f;
+
+  --bomb-body: #4a3f6b;
+  --bomb-rim: #4a3f6b;
+  --bomb-cap: #b7b2cc;
+  --bomb-fuse: #c9a46a;
+  --bomb-fuse-band: #7a5a2e;
+  --bomb-face: #ffffff;
+  --bomb-eye: #e5484d;
+  --bomb-mouth: #e46aa8;
+  --bomb-tint: 0.55;
+  --blast-core: rgba(255, 255, 255, 0.95);
+  --blast-edge: rgba(245, 169, 127, 0.6);
 }
 
 /* Gem colour (--c) and body fill colour (--fc; optional per-theme --gem-N-body,
@@ -364,6 +389,87 @@ body {
   }
   100% {
     transform: scale(0);
+    opacity: 0;
+  }
+}
+
+/* ---- Bombs (issue #28) ---- */
+.bomb-body {
+  fill: var(--bomb-body);
+}
+
+.bomb-tint {
+  fill: var(--fc);
+  opacity: var(--bomb-tint);
+}
+
+/* On the board the rim is the gem colour, so you can see what a bomb matches. */
+.bomb-ring {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 5;
+}
+
+.bomb-rim {
+  fill: none;
+  stroke: var(--bomb-rim);
+  stroke-width: 3;
+}
+
+.bomb-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: flicker 0.35s ease-in-out infinite alternate;
+}
+
+/* A fresh bomb pops in where its run was. */
+.gem.bomb-made svg {
+  animation: bomb-made var(--pop-ms) ease-out;
+}
+
+/* The blast: a flash over the 3x3 square around a bomb (placed by main.ts). */
+.blast {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 22%;
+  background: radial-gradient(circle, var(--blast-core) 0%, var(--blast-edge) 55%, transparent 72%);
+  animation: blast var(--blast-ms) ease-out forwards;
+}
+
+@keyframes flicker {
+  from {
+    transform: scale(0.8) rotate(0deg);
+  }
+  to {
+    transform: scale(1.15) rotate(25deg);
+  }
+}
+
+@keyframes bomb-made {
+  from {
+    transform: scale(1.4);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes blast {
+  from {
+    opacity: 1;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes blast-flash {
+  from {
+    opacity: 1;
+  }
+  to {
     opacity: 0;
   }
 }
@@ -857,10 +963,19 @@ button:disabled {
     animation: none;
     filter: drop-shadow(0 0 4px var(--highlight)) drop-shadow(0 0 12px var(--c));
   }
+  .bomb-spark,
+  .gem.bomb-made svg,
   .settings[open],
   .overlay,
   .stat.bonus,
   .stat.low .value {
     animation: none;
+  }
+}
+
+/* Reduced motion: the blast is a plain flash, with no scaling. */
+@media (prefers-reduced-motion: reduce) {
+  .blast {
+    animation-name: blast-flash;
   }
 }

@@ -4,9 +4,13 @@ export const DEFAULT_ROWS = 8;
 export const DEFAULT_COLS = 8;
 export const GEM_TYPES = 7;
 
+/** Special gems (issue #28). A bomb still has a colour (type) and matches by it. */
+export type Special = 'bomb';
+
 export interface Gem {
   id: number;
   type: number;
+  special?: Special;
 }
 
 export interface Pos {
@@ -99,7 +103,7 @@ export function clearCells(grid: Grid, cells: Pos[]): void {
  * Drops gems down into empty cells and fills the top of each column with new gems.
  * Returns the newly created gems with the row above the board they start from.
  */
-export function collapse(grid: Grid, rng: Rng): Spawn[] {
+export function collapse(grid: Grid, rng: Rng, bombChance = 0): Spawn[] {
   const spawns: Spawn[] = [];
   for (let c = 0; c < colsOf(grid); c++) {
     let write = rowsOf(grid) - 1;
@@ -117,6 +121,10 @@ export function collapse(grid: Grid, rng: Rng): Spawn[] {
       grid[r][c] = gem;
       spawns.push({ gem, pos: { row: r, col: c }, fromRow: r - missing });
     }
+  }
+  // At most one bomb per refill (issue #28). No extra rng calls when bombs are off.
+  if (bombChance > 0 && spawns.length > 0 && rng() < bombChance) {
+    spawns[Math.min(spawns.length - 1, Math.floor(rng() * spawns.length))].gem.special = 'bomb';
   }
   return spawns;
 }
@@ -182,4 +190,95 @@ export function shuffle(grid: Grid, rng: Rng = Math.random): void {
   // Extremely unlikely with 7 types; fall back to a brand-new board.
   const fresh = createBoard(rows, cols, rng);
   for (let r = 0; r < rows; r++) grid[r] = fresh[r];
+}
+
+// ---- Bombs (issue #28) ----
+
+/** A run at least this long leaves a bomb behind. */
+export const BOMB_RUN = 5;
+/** Chance that a refill drops in one bomb: about 1 in 12 refills. */
+export const BOMB_SPAWN_CHANCE = 1 / 12;
+/** Points per gem a blast clears, and the bonus per bomb that goes off (times the cascade). */
+export const BLAST_POINTS = 10;
+export const BOMB_BONUS = 50;
+
+/** What one clearing step does to the board. */
+export interface ClearPlan {
+  /** Cells whose gem turns into a bomb and stays on the board. */
+  made: Pos[];
+  /** Every cell to clear: the matched gems (minus `made`) plus everything blasted. */
+  cleared: Pos[];
+  /** The cells in `cleared` that only a blast reached (not part of a match). */
+  blasted: Pos[];
+  /** Bombs that went off, in chain order. */
+  detonated: Pos[];
+}
+
+const posKey = (p: Pos) => `${p.row},${p.col}`;
+
+/**
+ * Works out a clearing step. Each run of BOMB_RUN+ turns one of its gems into a
+ * bomb of the run's colour: the swapped gem if it's in the run, otherwise the one
+ * nearest the middle. A gem that is already a bomb never becomes the new bomb (it
+ * goes off instead). Every bomb being cleared blasts the 3x3 around it, and bombs
+ * the blast reaches go off too. A bomb made in this step is never blasted.
+ */
+export function planClear(grid: Grid, runs: Pos[][], swapped: readonly Pos[] = []): ClearPlan {
+  const isBomb = (p: Pos) => grid[p.row]?.[p.col]?.special === 'bomb';
+  const swappedKeys = new Set(swapped.map(posKey));
+  const madeKeys = new Set<string>();
+  const made: Pos[] = [];
+
+  for (const run of runs) {
+    if (run.length < BOMB_RUN) continue;
+    const free = run.filter((p) => !isBomb(p) && !madeKeys.has(posKey(p)));
+    if (free.length === 0) continue;
+    const mid = (run.length - 1) / 2;
+    const pick =
+      free.find((p) => swappedKeys.has(posKey(p))) ??
+      free.reduce((a, b) => (Math.abs(run.indexOf(b) - mid) < Math.abs(run.indexOf(a) - mid) ? b : a));
+    madeKeys.add(posKey(pick));
+    made.push(pick);
+  }
+
+  const clearedKeys = new Set<string>();
+  const cleared: Pos[] = [];
+  const blasted: Pos[] = [];
+  const queue: Pos[] = [];
+  const add = (p: Pos, byBlast: boolean) => {
+    const k = posKey(p);
+    if (madeKeys.has(k) || clearedKeys.has(k)) return;
+    clearedKeys.add(k);
+    cleared.push(p);
+    if (byBlast) blasted.push(p);
+    if (isBomb(p)) queue.push(p);
+  };
+  for (const p of matchedCells(runs)) add(p, false);
+
+  const detonated: Pos[] = [];
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
+  while (queue.length > 0) {
+    const b = queue.shift()!;
+    detonated.push(b);
+    for (let r = b.row - 1; r <= b.row + 1; r++) {
+      for (let c = b.col - 1; c <= b.col + 1; c++) {
+        if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c]) add({ row: r, col: c }, true);
+      }
+    }
+  }
+  return { made, cleared, blasted, detonated };
+}
+
+/** Turns the gems at `cells` into bombs (keeping their colour and id). */
+export function applyBombs(grid: Grid, cells: Pos[]): void {
+  for (const p of cells) {
+    const gem = grid[p.row][p.col];
+    if (gem) gem.special = 'bomb';
+  }
+}
+
+/** Extra points for a step's blasts: BLAST_POINTS per blasted gem plus BOMB_BONUS per bomb, times the cascade. */
+export function blastScore(plan: ClearPlan, cascade: number): number {
+  return (plan.blasted.length * BLAST_POINTS + plan.detonated.length * BOMB_BONUS) * cascade;
 }
