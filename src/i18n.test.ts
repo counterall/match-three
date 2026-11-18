@@ -37,8 +37,8 @@ describe('messages', () => {
   });
 
   it('fills placeholders', () => {
-    expect(t('en', 'cascade', { n: 3 })).toBe('Cascade ×3');
-    expect(t('zh-CN', 'cascade', { n: 3 })).toBe('连锁 ×3');
+    expect(t('en', 'comboGreat', { n: 3 })).toBe('Great! ×3');
+    expect(t('zh-CN', 'comboGreat', { n: 3 })).toBe('很棒！×3');
     expect(t('en', 'bonusTime', { s: 20 })).toBe('+20s');
     expect(t('zh-CN', 'bonusTime', { s: 20 })).toBe('+20秒');
     expect(t('en', 'minutes', { n: 5 })).toBe('5 min');
