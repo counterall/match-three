@@ -58,7 +58,10 @@ describe('main.ts wiring', () => {
   it('passes the swap to the first clearing step and refills with the bomb chance', () => {
     expect(mainSrc).toMatch(/resolveCascades\(token, \[a, b\]\)/);
     expect(mainSrc).toMatch(/planClear\(grid, runs, cascade === 1 \? swapped : \[\]\)/);
-    expect(mainSrc).toMatch(/collapse\(grid, Math\.random, BOMB_SPAWN_CHANCE\)/);
+    // The round's generator and bomb chance: free play = Math.random and BOMB_SPAWN_CHANCE;
+    // a daily (issue #36) = the day's seed and its twist's chance.
+    expect(mainSrc).toMatch(/collapse\(grid, roundRng, roundBombChance\)/);
+    expect(mainSrc).toMatch(/roundRng = Math\.random;\s*roundBombChance = BOMB_SPAWN_CHANCE;/);
   });
 
   it('adds blast points to the step score, so they count toward bonus time', () => {
