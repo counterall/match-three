@@ -80,7 +80,9 @@ describe('best score per time limit (issue #22)', () => {
   });
 
   it('switches the best on a new game and on a limit change before the first move', () => {
-    expect(body('newGame')).toContain('setRoundLimit(settings.timeLimit, settings.diagonal)');
+    // Free play's length comes from the Settings (a daily overrides it, issue #36).
+    expect(body('newGame')).toContain('let minutes: TimeLimit = settings.timeLimit;');
+    expect(body('newGame')).toContain('setRoundLimit(minutes, diagonal)');
     expect(body('onTimeLimitChange')).toContain('setRoundLimit(minutes)');
   });
 });

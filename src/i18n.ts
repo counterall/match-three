@@ -36,7 +36,7 @@ const en = {
   themePastel: 'Pastel',
   timeLimit: 'Time limit',
   timeLimitNote:
-    "Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.",
+    "Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds. The daily challenge is always 3 minutes.",
   minutes: '{n} min',
   language: 'Language',
   gemStyle: 'Gem style',
@@ -46,8 +46,7 @@ const en = {
   diagonalOff: 'Off',
   diagonalOn: 'On',
   diagonalNote:
-    "Lines of 3 along a diagonal match too. Applies from the next game, or straight away if you haven't moved yet. Diagonal games keep their own best.",
-  diagonalBadge: 'Diagonal matches on',
+    "Lines of 3 along a diagonal match too. Applies from the next game, or straight away if you haven't moved yet. Diagonal games keep their own best. The daily challenge follows its own twist.",
   done: 'Done',
   comboNice: 'Nice! ×{n}',
   comboGreat: 'Great! ×{n}',
@@ -58,6 +57,17 @@ const en = {
   moveTotal: 'Move +{n}',
   bonusTime: '+{s}s',
   noMoves: 'No moves left · shuffling',
+  dailyChallenge: 'Daily challenge',
+  dailyUnplayed: 'Daily challenge (not played today)',
+  dailyTitle: 'Daily · {day}',
+  todayBest: "Today's best {n}",
+  todayBestLabel: "Today's best",
+  streak: '{n}-day streak',
+  freePlay: 'Free play',
+  twistClassic: 'Classic',
+  twistDiagonal: 'Diagonal',
+  twistBombRain: 'Bomb rain',
+  twistBoth: 'Diagonal + Bomb rain',
 };
 
 export type MessageKey = keyof typeof en;
@@ -85,7 +95,7 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     themeNeon: '霓虹',
     themePastel: '粉彩',
     timeLimit: '每局时长',
-    timeLimitNote: '从下一局开始生效；如果本局还没走第一步，则立即生效。每得 1000 分加 20 秒。',
+    timeLimitNote: '从下一局开始生效；如果本局还没走第一步，则立即生效。每得 1000 分加 20 秒。每日挑战固定为 3 分钟。',
     minutes: '{n} 分钟',
     language: '语言',
     gemStyle: '宝石样式',
@@ -94,8 +104,7 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     diagonal: '斜线消除',
     diagonalOff: '关',
     diagonalOn: '开',
-    diagonalNote: '斜线上连成 3 个也能消除。从下一局开始生效；如果本局还没走第一步，则立即生效。斜线模式单独记录最高分。',
-    diagonalBadge: '斜线消除已开启',
+    diagonalNote: '斜线上连成 3 个也能消除。从下一局开始生效；如果本局还没走第一步，则立即生效。斜线模式单独记录最高分。每日挑战按当天的规则进行。',
     done: '完成',
     comboNice: '不错！×{n}',
     comboGreat: '很棒！×{n}',
@@ -106,6 +115,17 @@ export const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     moveTotal: '本步 +{n}',
     bonusTime: '+{s}秒',
     noMoves: '没有可走的步了 · 重新洗牌',
+    dailyChallenge: '每日挑战',
+    dailyUnplayed: '每日挑战（今天还没完成）',
+    dailyTitle: '每日挑战 · {day}',
+    todayBest: '今日最佳 {n}',
+    todayBestLabel: '今日最佳',
+    streak: '连续 {n} 天',
+    freePlay: '自由模式',
+    twistClassic: '经典',
+    twistDiagonal: '斜线',
+    twistBombRain: '炸弹雨',
+    twistBoth: '斜线 + 炸弹雨',
   },
 };
 
@@ -136,7 +156,7 @@ export function detectLanguage(preferred: readonly string[]): Language {
 
 /**
  * Translates the page (or `root`): text of [data-i18n] elements, aria-label of
- * [data-i18n-label] ones, and the lang attribute. A data-i18n-n attribute fills {n}.
+ * [data-i18n-label] ones (and their title, if they have one), and the lang attribute. A data-i18n-n attribute fills {n}.
  */
 export function applyLanguage(lang: Language, root: ParentNode = document): void {
   if (root === document) {
@@ -149,6 +169,9 @@ export function applyLanguage(lang: Language, root: ParentNode = document): void
     el.textContent = t(lang, el.dataset.i18n as MessageKey, n === undefined ? {} : { n });
   }
   for (const el of root.querySelectorAll<HTMLElement>('[data-i18n-label]')) {
-    el.setAttribute('aria-label', t(lang, el.dataset.i18nLabel as MessageKey));
+    const label = t(lang, el.dataset.i18nLabel as MessageKey);
+    el.setAttribute('aria-label', label);
+    // Icon buttons repeat their label as a hover tooltip (issue #36).
+    if (el.hasAttribute('title')) el.title = label;
   }
 }

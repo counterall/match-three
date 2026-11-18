@@ -21,12 +21,13 @@ import {
   type LineDir,
   type MatchOptions,
   type Pos,
+  type Rng,
   type Special,
   type Spawn,
 } from './board';
 import { DEFAULT_CAST, drawCast, type AnimalCast } from './animals';
 import { LINE_BADGE_ANGLE, gemSvg, installGemDefs, type GemMark } from './gems';
-import { t } from './i18n';
+import { t, type MessageKey } from './i18n';
 import { initSettings } from './settings-ui';
 import { installStandaloneZoomGuards } from './tap-guard';
 import { Countdown, bonusSeconds, formatTime } from './timer';
@@ -34,6 +35,21 @@ import { canPause, shouldAutoPause } from './pause';
 import { loadBest, saveBest } from './best';
 import { DEFAULT_SETTINGS, type TimeLimit } from './settings';
 import { CALLOUT_MS, LONG_CALLOUT_MS, calloutKey, calloutMs, showMoveTotal, stepCallout, type Callout } from './combo';
+import {
+  DAILY_MINUTES,
+  dailyBest,
+  dailyDate,
+  formatDay,
+  loadDaily,
+  playedOn,
+  recordDaily,
+  saveDaily,
+  seededRng,
+  streakOn,
+  twistFor,
+  twistRules,
+  type Twist,
+} from './daily';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -63,7 +79,7 @@ root.style.setProperty('--blast-ms', `${BLAST_MS}ms`);
 const boardEl = document.querySelector<HTMLDivElement>('#board')!;
 const scoreEl = document.querySelector<HTMLSpanElement>('#score')!;
 const bestEl = document.querySelector<HTMLSpanElement>('#best')!;
-const diagBadge = document.querySelector<HTMLSpanElement>('#diag-badge')!;
+const bestLabel = document.querySelector<HTMLSpanElement>('#best-label')!;
 const toastEl = document.querySelector<HTMLDivElement>('#toast')!;
 const hintBtn = document.querySelector<HTMLButtonElement>('#hint')!;
 const newGameBtn = document.querySelector<HTMLButtonElement>('#new-game')!;
@@ -74,15 +90,29 @@ const finalScoreEl = document.querySelector<HTMLSpanElement>('#final-score')!;
 const newBestEl = document.querySelector<HTMLParagraphElement>('#new-best')!;
 const playAgainBtn = document.querySelector<HTMLButtonElement>('#play-again')!;
 const pauseBtn = document.querySelector<HTMLButtonElement>('#pause')!;
+const dailyBtn = document.querySelector<HTMLButtonElement>('#daily')!;
+const freePlayBtn = document.querySelector<HTMLButtonElement>('#free-play')!;
+const dailyTitleEl = document.querySelector<HTMLParagraphElement>('#daily-title')!;
+const dailyTitleText = document.querySelector<HTMLSpanElement>('#daily-title-text')!;
+const todayBestEl = document.querySelector<HTMLParagraphElement>('#today-best')!;
+const streakEl = document.querySelector<HTMLParagraphElement>('#streak')!;
+const streakText = document.querySelector<HTMLSpanElement>('#streak-text')!;
 const pausedEl = document.querySelector<HTMLDivElement>('#paused')!;
 const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
 
 // ---- State ----
+/** Free play follows the Settings; a daily (issue #36) is today's seeded 3-minute round. */
+type Mode = 'free' | 'daily';
+let mode: Mode = 'free';
+let roundDate = ''; // a daily's date (the day it started), 'YYYY-MM-DD'
+let roundRng: Rng = Math.random; // board, refills, shuffles and cast: seeded in a daily
+let roundBombChance = BOMB_SPAWN_CHANCE;
+let streakCount = 0; // the streak shown on a daily's game-over card
 let grid: Grid = [];
 let score = 0;
 let roundLimit: TimeLimit = DEFAULT_SETTINGS.timeLimit; // this round's length; set by setRoundLimit()
 let roundDiagonal = DEFAULT_SETTINGS.diagonal; // this round's mode (issue #30); set by setRoundLimit()
-let best = 0; // best score for rounds of roundLimit minutes in this mode (issues #22, #30)
+let best = 0; // free play: best for roundLimit minutes in this mode (issues #22, #30); daily: today's best
 let busy = false;
 let selected: Pos | null = null;
 let hintTimer = 0;
@@ -100,16 +130,24 @@ const storage = () => window.localStorage;
 /** The match rules of this round: diagonal matches on or off (issue #30). */
 const matchOpts = (): MatchOptions => ({ diagonal: roundDiagonal });
 
-/**
- * Sets the round length and mode whose best score the HUD shows and this round can
- * beat; the diagonal badge next to Best shows the mode.
- */
+/** Sets the round length and match mode; the HUD then shows the best this round can beat. */
 function setRoundLimit(minutes: TimeLimit, diagonal = roundDiagonal): void {
   roundLimit = minutes;
   roundDiagonal = diagonal;
-  diagBadge.hidden = !diagonal;
-  best = loadBest(storage, minutes, diagonal);
+  setRoundBest();
+}
+
+/**
+ * Loads the best this round can beat: the free-play best for its length and mode, or
+ * today's daily best. Best's icon is a trophy in free play and a calendar in a daily.
+ */
+function setRoundBest(): void {
+  best = mode === 'daily' ? dailyBest(loadDaily(storage), roundDate) : loadBest(storage, roundLimit, roundDiagonal);
   bestAtStart = best;
+  const label: MessageKey = mode === 'daily' ? 'todayBestLabel' : 'best';
+  bestLabel.dataset.mode = mode;
+  bestLabel.dataset.i18nLabel = label; // a language switch re-translates it
+  bestLabel.setAttribute('aria-label', t(settings.language, label));
   setScore(score);
 }
 
@@ -188,7 +226,8 @@ function setScore(value: number): void {
   scoreEl.textContent = score.toLocaleString(settings.language);
   if (score > best) {
     best = score;
-    saveBest(storage, roundLimit, best, roundDiagonal);
+    // A daily's result is saved at game over (recordDaily), never as a free-play best.
+    if (mode === 'free') saveBest(storage, roundLimit, best, roundDiagonal);
   }
   bestEl.textContent = best.toLocaleString(settings.language);
 }
@@ -433,7 +472,7 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
       el.remove();
     }
     clearCells(grid, cells);
-    const spawns = collapse(grid, Math.random, BOMB_SPAWN_CHANCE);
+    const spawns = collapse(grid, roundRng, roundBombChance);
     addSpawns(spawns);
     render();
     await wait(FALL_BASE_MS + rowsOf(grid) * FALL_PER_ROW_MS);
@@ -452,7 +491,7 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
     toast(t(settings.language, 'noMoves'), 1400);
     await wait(700);
     if (token !== gameToken) return false;
-    shuffle(grid, Math.random, matchOpts());
+    shuffle(grid, roundRng, matchOpts());
     boardEl.classList.add('shuffling');
     render();
     await wait(SWAP_MS * 2);
@@ -492,35 +531,113 @@ function showGameOver(): void {
   clearHint();
   finalScoreEl.textContent = score.toLocaleString(settings.language);
   newBestEl.hidden = !(score > bestAtStart && score > 0);
+  const daily = mode === 'daily';
+  if (daily) {
+    // A finished daily counts for the day it started on, even after midnight.
+    const rec = recordDaily(loadDaily(storage), roundDate, score);
+    saveDaily(storage, rec);
+    streakCount = streakOn(rec, roundDate);
+  }
+  // Describe the card by what it shows: the daily lines only in a daily.
+  gameOverEl.setAttribute('aria-describedby', daily ? 'daily-title final-score-line new-best today-best streak' : 'final-score-line new-best');
+  dailyTitleEl.hidden = !daily;
+  todayBestEl.hidden = !daily;
+  streakEl.hidden = !daily;
+  freePlayBtn.hidden = !daily;
+  fillDailyCard();
   gameOverEl.hidden = false;
+  syncDailyButton();
   playAgainBtn.focus();
 }
 
-function newGame(): void {
+/** The daily lines of the game-over card, in the current language. */
+function fillDailyCard(): void {
+  if (mode !== 'daily') return;
+  const lang = settings.language;
+  dailyTitleText.textContent = t(lang, 'dailyTitle', { day: formatDay(roundDate, lang, 'short') });
+  todayBestEl.textContent = t(lang, 'todayBest', { n: best.toLocaleString(lang) });
+  streakText.textContent = t(lang, 'streak', { n: streakCount });
+}
+
+const TWIST_KEYS: Record<Twist, MessageKey> = {
+  classic: 'twistClassic',
+  diagonal: 'twistDiagonal',
+  bombRain: 'twistBombRain',
+  both: 'twistBoth',
+};
+const twistKey = (twist: Twist): MessageKey => TWIST_KEYS[twist];
+
+/** A daily's start callout: "Daily · Tuesday" over the day's twist. */
+function announceDaily(): void {
+  const lang = settings.language;
+  toast(
+    { word: t(lang, 'dailyTitle', { day: formatDay(roundDate, lang, 'long') }), tier: '0', extra: t(lang, twistKey(twistFor(roundDate))) },
+    LONG_CALLOUT_MS,
+  );
+}
+
+/**
+ * Daily button: highlighted while a daily is on (data-mode; not aria-pressed, since
+ * pressing it again restarts the daily rather than turning it off), and a dot until
+ * today's daily has been finished, which its label says too.
+ */
+function syncDailyButton(): void {
+  const unplayed = !playedOn(loadDaily(storage), dailyDate(new Date()));
+  const label: MessageKey = unplayed ? 'dailyUnplayed' : 'dailyChallenge';
+  dailyBtn.dataset.mode = mode;
+  dailyBtn.dataset.unplayed = String(unplayed);
+  dailyBtn.dataset.i18nLabel = label; // a language switch re-translates it
+  dailyBtn.setAttribute('aria-label', t(settings.language, label));
+  dailyBtn.title = t(settings.language, label);
+}
+
+/**
+ * Starts a round. Free play takes its length and match mode from the Settings; a daily
+ * (issue #36) is 3 minutes with the weekday's twist, and its cast, board, refills and
+ * shuffles all come from the day's seeded generator, so every player gets the same.
+ */
+function newGame(next: Mode = 'free'): void {
   gameToken++;
   busy = false;
   timeUp = false;
   selected = null;
   drag = null;
   gameOverEl.hidden = true;
+  mode = next;
+  const { rows, cols } = currentLayout();
+  let minutes: TimeLimit = settings.timeLimit;
+  let diagonal = settings.diagonal;
+  if (mode === 'daily') {
+    roundDate = dailyDate(new Date());
+    const rules = twistRules(twistFor(roundDate));
+    roundRng = seededRng(roundDate, rows, cols);
+    roundBombChance = rules.bombChance;
+    minutes = DAILY_MINUTES;
+    diagonal = rules.diagonal;
+  } else {
+    roundRng = Math.random;
+    roundBombChance = BOMB_SPAWN_CHANCE;
+  }
   // Reset the clock before unpausing: setPaused() runs updateClock(), which would
   // otherwise see the previous round's expired clock and end this one at once.
-  clock.reset(settings.timeLimit * 60_000);
+  clock.reset(minutes * 60_000);
   setPaused(false);
   // Seven of the eight animals, in a random order, for every new game (issue #20).
-  animalCast = drawCast(Math.random);
+  animalCast = drawCast(roundRng);
   // Score first: setRoundLimit() shows it, and could save the old one as a best.
   // The mode is fixed for the round before the board is made (issue #30).
   score = 0;
-  setRoundLimit(settings.timeLimit, settings.diagonal);
-  const { rows, cols } = currentLayout();
-  grid = createBoard(rows, cols, Math.random, matchOpts());
+  setRoundLimit(minutes, diagonal);
+  grid = createBoard(rows, cols, roundRng, matchOpts());
   document.body.style.setProperty('--rows', String(rows));
   document.body.style.setProperty('--cols', String(cols));
   rebuildBoard();
   resetIdle();
   updateClock();
   syncPauseButton();
+  syncDailyButton();
+  if (mode === 'daily') announceDaily();
+  else toastEl.classList.remove('show');
 }
 
 // ---- Pause / resume ----
@@ -533,7 +650,9 @@ const roundState = () => ({ started: clock.isStarted, timeUp, paused });
 function syncPauseButton(): void {
   pauseBtn.disabled = !paused && !canPause(roundState());
   pauseBtn.dataset.paused = String(paused);
-  pauseBtn.setAttribute('aria-label', t(settings.language, paused ? 'resume' : 'pause'));
+  const label = t(settings.language, paused ? 'resume' : 'pause');
+  pauseBtn.setAttribute('aria-label', label);
+  pauseBtn.title = label;
 }
 
 function setPaused(on: boolean): void {
@@ -614,15 +733,17 @@ boardEl.addEventListener('pointerup', () => {
 boardEl.addEventListener('pointercancel', () => (drag = null));
 
 hintBtn.addEventListener('click', showHint);
-newGameBtn.addEventListener('click', newGame);
-playAgainBtn.addEventListener('click', newGame);
+newGameBtn.addEventListener('click', () => newGame('free'));
+dailyBtn.addEventListener('click', () => newGame('daily'));
+playAgainBtn.addEventListener('click', () => newGame(mode));
+freePlayBtn.addEventListener('click', () => newGame('free'));
 pauseBtn.addEventListener('click', () => (paused ? resume() : pause()));
 resumeBtn.addEventListener('click', resume);
 
 // Crossing the phone/desktop breakpoint swaps the board shape, but only before the
 // first move, so resizing or rotating never throws away a game in progress.
 compactQuery.addEventListener('change', () => {
-  if (!clock.isStarted && !busy) newGame();
+  if (!clock.isStarted && !busy) newGame(mode);
 });
 
 // The clock pauses while the settings dialog is open or the page is hidden. Hiding the
@@ -631,6 +752,7 @@ compactQuery.addEventListener('change', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) clock.hold('hidden', performance.now());
   else clock.release('hidden', performance.now());
+  if (!document.hidden) syncDailyButton(); // the date may have moved on
   if (shouldAutoPause(roundState(), document.hidden)) pause();
   updateClock();
 });
@@ -653,16 +775,18 @@ const settings = initSettings({
     else if (!open && paused) resumeBtn.focus();
   },
   // A new limit applies to the next game, or right away if this one hasn't started.
+  // A daily is always 3 minutes: the limit waits for the next free-play game.
   onTimeLimitChange(minutes) {
-    if (!clock.isStarted && !timeUp) {
+    if (mode === 'free' && !clock.isStarted && !timeUp) {
       clock.reset(minutes * 60_000);
       setRoundLimit(minutes);
       updateClock();
     }
   },
   // Diagonal matches: the next game, or a fresh board right away if this one hasn't started.
+  // A daily's twist decides diagonal matches, so the setting waits for free play.
   onDiagonalChange() {
-    if (!clock.isStarted && !timeUp && !busy) newGame();
+    if (mode === 'free' && !clock.isStarted && !timeUp && !busy) newGame('free');
   },
   // Redraw every gem on the board in the new style; positions and state are unchanged.
   onGemStyleChange(style) {
@@ -675,10 +799,14 @@ const settings = initSettings({
   onLanguageChange() {
     syncPauseButton();
     setScore(score);
-    if (!gameOverEl.hidden) finalScoreEl.textContent = score.toLocaleString(settings.language);
+    if (!gameOverEl.hidden) {
+      finalScoreEl.textContent = score.toLocaleString(settings.language);
+      fillDailyCard();
+    }
   },
 });
 if (document.hidden) clock.hold('hidden', performance.now());
 setInterval(updateClock, TICK_MS);
+setInterval(syncDailyButton, 60_000); // a new day brings the dot back, even with the tab left open
 
 newGame();

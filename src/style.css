@@ -50,6 +50,7 @@
   --blast-edge: rgba(255, 140, 26, 0.55);
   --line-badge-bg: #0a061e;
   --line-badge-fg: #ffffff;
+  --streak: #ffb020; /* daily streak flame and text (issue #36) */
   /* Combo callouts (issue #34): tier colours run cool to hot; the word takes the
      tier colour (--callout-word of it), on a pill tinted --callout-tint of it. */
   --callout-1: var(--gem-1);
@@ -105,6 +106,7 @@
   --blast-edge: rgba(245, 169, 127, 0.6);
   --line-badge-bg: #ffffff;
   --line-badge-fg: #4a3f6b;
+  --streak: #e8804a;
   /* Pastel: the word stays ink for contrast; the tier colour goes to the border and tint. */
   --callout-1: #6bb8e0;
   --callout-2: #5fc48a;
@@ -219,7 +221,8 @@ body {
   background: var(--panel);
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  gap: 2px;
 }
 
 .label {
@@ -239,26 +242,16 @@ body {
   min-width: 72px; /* m:ss is narrower than a score */
 }
 
-/* The Best label holds the diagonal badge too; keep them on one line. */
-.stat .label {
-  white-space: nowrap;
-}
-
-/* Diagonal matches on (issue #30): a small mark before the Best label. */
-.diag-badge {
-  display: inline-block;
-  width: 1.15em;
-  height: 1.15em;
-  margin-right: 0.3em;
-  vertical-align: -0.2em;
+/* Stat labels are icons (issue #36): star = Score, trophy (free play) or calendar
+   (daily) = Best, clock = Time. Each carries a translated aria-label. */
+.stat-icon {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
   color: var(--accent);
 }
 
-.diag-badge[hidden] {
-  display: none;
-}
-
-.diag-badge svg {
+.stat-icon svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -267,6 +260,11 @@ body {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+#best-label[data-mode='daily'] .icon-trophy,
+#best-label:not([data-mode='daily']) .icon-calendar {
+  display: none;
 }
 
 /* Round timer: urgent in the last seconds, flashes when bonus time is added. */
@@ -813,6 +811,54 @@ body {
   font-size: clamp(1.8rem, 8vw, 2.6rem);
 }
 
+.daily-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.daily-title svg,
+.streak svg {
+  width: 1.2em;
+  height: 1.2em;
+  flex: none;
+}
+
+.daily-title svg {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.daily-title[hidden],
+.today-best[hidden],
+.streak[hidden] {
+  display: none;
+}
+
+.streak {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 800;
+  color: var(--streak);
+}
+
+.streak svg {
+  fill: var(--streak);
+}
+
+.overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .new-best {
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -870,17 +916,55 @@ button:disabled {
   pointer-events: none;
 }
 
-/* Square icon button (pause/resume). Shows the pause icon, or play while paused. */
+/* Every control is a square icon button (issue #36); its label is the aria-label and
+   a tooltip. Pause shows the pause icon, or play while paused. */
 .icon-btn {
+  position: relative;
   display: inline-grid;
   place-items: center;
-  padding: 10px 12px;
+  padding: 10px 14px;
 }
 
 .icon-btn svg {
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.35em;
+  height: 1.35em;
   fill: currentColor;
+}
+
+.icon-btn .stroke-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Settings gear: eight teeth as a thick dashed ring. */
+.icon-btn .gear-teeth {
+  stroke-width: 3.2;
+  stroke-dasharray: 1 1;
+  stroke-linecap: butt;
+}
+
+/* Daily: filled while a daily round is on; a dot until today's daily is played. */
+#daily[data-mode='daily'] {
+  background: color-mix(in srgb, var(--btn) 18%, transparent);
+}
+
+.daily-dot {
+  display: none;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 calc(6px * var(--glow)) var(--accent-2);
+}
+
+#daily[data-unplayed='true'] .daily-dot {
+  display: block;
 }
 
 .icon-btn .icon-play,
@@ -1125,6 +1209,11 @@ button:disabled {
     font-size: 0.6rem;
   }
 
+  .stat-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
   .value {
     font-size: 1.05rem;
   }
@@ -1135,31 +1224,15 @@ button:disabled {
   }
 
   .controls .icon-btn {
-    flex: 0 0 auto;
-    padding: 10px;
-    font-size: 0.8rem;
-    line-height: 1.15;
-  }
-
-  .controls button:not(.icon-btn) {
-    flex: 1 1 0;
-    padding: 10px 6px;
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
+    flex: 0 1 56px;
+    padding: 10px 0;
   }
 }
 
-/* Very narrow phones: tighter stats so six-digit scores still fit, and tighter
-   control labels so the four controls stay on one line. */
+/* Very narrow phones: tighter stats so six-digit scores still fit. */
 @media (max-width: 360px) {
   .controls {
     gap: 6px;
-  }
-
-  .controls button:not(.icon-btn) {
-    padding-inline: 4px;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
   }
 
   .stat,

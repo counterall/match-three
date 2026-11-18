@@ -171,17 +171,10 @@ describe('Settings dialog and HUD markup', () => {
     expect(settingsUiSrc).toMatch(/onDiagonalChange\?\.\(/);
   });
 
-  it('has a hidden, labelled diagonal badge next to Best', () => {
-    const best = html.match(/<div class="stat">[^\n]*id="best"[^\n]*<\/div>/)?.[0] ?? '';
-    expect(best).toMatch(/id="diag-badge"/);
-    const badge = best.match(/<span id="diag-badge"[^>]*>/)?.[0] ?? '';
-    expect(badge).toMatch(/\shidden[\s>]/);
-    expect(badge).toMatch(/role="img"/);
-    expect(badge).toMatch(/data-i18n-label="diagonalBadge"/);
-  });
+  // The ⤢ badge next to Best was removed in issue #36 (owner decision); daily-ui.test.ts checks it stays gone.
 
   it('has every new string in every language', () => {
-    for (const key of ['diagonal', 'diagonalOff', 'diagonalOn', 'diagonalNote', 'diagonalBadge'] as const) {
+    for (const key of ['diagonal', 'diagonalOff', 'diagonalOn', 'diagonalNote'] as const) {
       expect(MESSAGES.en[key]).toBeTruthy();
       expect(MESSAGES['zh-CN'][key]).toBeTruthy();
     }
@@ -205,13 +198,15 @@ describe('main.ts wiring', () => {
   });
 
   it('a new game takes the mode from the settings; the best follows the round', () => {
-    expect(body('newGame')).toContain('setRoundLimit(settings.timeLimit, settings.diagonal)');
-    expect(body('setRoundLimit')).toMatch(/loadBest\(storage, minutes, diagonal\)/);
-    expect(body('setRoundLimit')).toMatch(/diagBadge\.hidden = !diagonal/);
+    // Free play takes the Settings; a daily (issue #36) overrides them with its twist.
+    expect(body('newGame')).toContain('let minutes: TimeLimit = settings.timeLimit;');
+    expect(body('newGame')).toContain('let diagonal = settings.diagonal;');
+    expect(body('newGame')).toContain('setRoundLimit(minutes, diagonal)');
+    expect(body('setRoundBest')).toMatch(/loadBest\(storage, roundLimit, roundDiagonal\)/);
     expect(body('setScore')).toMatch(/saveBest\(storage, roundLimit, best, roundDiagonal\)/);
   });
 
   it('a mode change applies at once only before the first move', () => {
-    expect(body('onDiagonalChange')).toMatch(/if \(!clock\.isStarted && !timeUp && !busy\) newGame\(\)/);
+    expect(body('onDiagonalChange')).toMatch(/if \(mode === 'free' && !clock\.isStarted && !timeUp && !busy\) newGame\('free'\)/);
   });
 });
