@@ -9,6 +9,7 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Swap:** click or tap a gem, then click a neighbouring gem. You can also drag a gem up, down, left or right.
 - **Match:** a swap only counts if it makes a line of 3 or more. Otherwise the gems slide back.
 - **Score:** 10 points per gem cleared, plus 20 for each gem beyond 3 in a line. Every cascade step multiplies the points (×2, ×3, …).
+- **Bombs:** a line of 5 or more leaves a bomb of that colour behind (the gem you moved, or the middle one in a cascade). Bombs also drop in now and then (at most one per refill, about 1 in 12 refills). A bomb matches like a normal gem of its colour; when it's cleared it blasts the 3×3 square around it, setting off any bomb the blast reaches. Each blasted gem scores 10 and each bomb 50, times the cascade step.
 - **Time limit:** each round lasts 3 minutes by default (5 or 10 in Settings). The clock starts with your first move and pauses while Settings is open or the tab is hidden. Every 1,000 points adds 20 seconds. When time runs out, a cascade already falling still scores, then the round ends and **Play again** starts a new one.
 - **Pause:** once the clock is running, tap the pause button (left of **Hint**) to stop it. The board stays visible, lightly dimmed, but you can't move while paused; tap **Resume** (or the button again) to carry on. Switching away (another tab, or minimising the home-screen app on iOS/Android) pauses automatically.
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
@@ -84,7 +85,7 @@ The build uses relative asset paths (`base: './'` in `vite.config.ts`), so `dist
 
 ## Roadmap
 
-- Special gems for 4- and 5-in-a-row matches
+- Special gems for 4-in-a-row matches (the line gem)
 - Sound effects
 - Levels
 - Keyboard controls

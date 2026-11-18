@@ -1,5 +1,8 @@
 import './style.css';
 import {
+  BOMB_SPAWN_CHANCE,
+  applyBombs,
+  blastScore,
   clearCells,
   collapse,
   createBoard,
@@ -7,11 +10,12 @@ import {
   findRuns,
   isAdjacent,
   colsOf,
-  matchedCells,
+  planClear,
   rowsOf,
   scoreFor,
   shuffle,
   swap,
+  type Gem,
   type Grid,
   type Pos,
   type Spawn,
@@ -32,6 +36,7 @@ const SWAP_MS = reducedMotion ? 60 : 200;
 const POP_MS = reducedMotion ? 60 : 280;
 const FALL_BASE_MS = reducedMotion ? 60 : 160;
 const FALL_PER_ROW_MS = reducedMotion ? 0 : 45;
+const BLAST_MS = reducedMotion ? 220 : 340; // reduced motion: a plain flash, still long enough to see
 const HINT_DELAY_MS = 6000;
 const TICK_MS = 200; // how often the HUD clock refreshes
 const LOW_TIME_MS = 10_000; // the clock turns urgent below this
@@ -47,6 +52,7 @@ const currentLayout = () => (compactQuery.matches ? LAYOUTS.compact : LAYOUTS.wi
 const root = document.documentElement;
 root.style.setProperty('--swap-ms', `${SWAP_MS}ms`);
 root.style.setProperty('--pop-ms', `${POP_MS}ms`);
+root.style.setProperty('--blast-ms', `${BLAST_MS}ms`);
 
 // ---- DOM ----
 const boardEl = document.querySelector<HTMLDivElement>('#board')!;
@@ -96,16 +102,23 @@ function setRoundLimit(minutes: TimeLimit): void {
 /** This game's animals (Animals gem style): drawn afresh by newGame(). */
 let animalCast: AnimalCast = DEFAULT_CAST;
 
-function createGemEl(id: number, type: number, row: number, col: number): HTMLDivElement {
+function createGemEl(gem: Gem, row: number, col: number): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'gem';
-  el.dataset.id = String(id);
-  el.dataset.type = String(type);
-  el.innerHTML = gemSvg(type, settings.gemStyle, animalCast);
+  el.dataset.id = String(gem.id);
+  el.dataset.type = String(gem.type);
+  drawGem(el, gem.special === 'bomb');
   place(el, row, col);
   boardEl.append(el);
-  els.set(id, el);
+  els.set(gem.id, el);
   return el;
+}
+
+/** (Re)draws a gem element's artwork in the current style; bombs are flagged on the element. */
+function drawGem(el: HTMLDivElement, bomb = el.dataset.special === 'bomb', style = settings.gemStyle): void {
+  if (bomb) el.dataset.special = 'bomb';
+  else delete el.dataset.special;
+  el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast, bomb);
 }
 
 function place(el: HTMLDivElement, row: number, col: number): void {
@@ -123,19 +136,19 @@ function render(): void {
     for (let c = 0; c < colsOf(grid); c++) {
       const gem = grid[r][c];
       if (!gem) continue;
-      const el = els.get(gem.id) ?? createGemEl(gem.id, gem.type, r, c);
+      const el = els.get(gem.id) ?? createGemEl(gem, r, c);
       if (el.dataset.row !== String(r) || el.dataset.col !== String(c)) place(el, r, c);
     }
   }
 }
 
 function addSpawns(spawns: Spawn[]): void {
-  for (const s of spawns) createGemEl(s.gem.id, s.gem.type, s.fromRow, s.pos.col);
+  for (const s of spawns) createGemEl(s.gem, s.fromRow, s.pos.col);
   void boardEl.offsetHeight; // commit start positions so the fall animates
 }
 
 function rebuildBoard(): void {
-  boardEl.querySelectorAll('.gem').forEach((el) => el.remove());
+  boardEl.querySelectorAll('.gem, .blast').forEach((el) => el.remove());
   els.clear();
   render();
 }
@@ -163,6 +176,18 @@ function toast(text: string, ms = 1100): void {
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+
+/** Flash over the 3x3 square around a bomb that goes off (clipped by the board's overflow). */
+function showBlast(p: Pos): void {
+  const el = document.createElement('div');
+  el.className = 'blast';
+  el.style.left = `${((p.col - 1) / colsOf(grid)) * 100}%`;
+  el.style.top = `${((p.row - 1) / rowsOf(grid)) * 100}%`;
+  el.style.width = `${(3 / colsOf(grid)) * 100}%`;
+  el.style.height = `${(3 / rowsOf(grid)) * 100}%`;
+  boardEl.append(el);
+  el.addEventListener('animationend', () => el.remove());
 }
 
 function floatPoints(cells: Pos[], points: number, type: number): void {
@@ -233,7 +258,7 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
     return;
   }
 
-  await resolveCascades(token);
+  await resolveCascades(token, [a, b]);
   if (token !== gameToken) return;
   finishMove();
 }
@@ -245,16 +270,30 @@ function finishMove(): void {
   else if (!paused) resetIdle();
 }
 
-async function resolveCascades(token: number): Promise<void> {
+/** `swapped`: the two cells of the player's swap, so a 5-run's bomb lands on the moved gem. */
+async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
   let cascade = 1;
   for (let runs = findRuns(grid); runs.length > 0; runs = findRuns(grid)) {
-    const cells = matchedCells(runs);
-    const points = scoreFor(runs, cascade);
-    const type = grid[cells[0].row][cells[0].col]!.type;
+    // Bombs (issue #28): 5+ runs leave one behind; cleared bombs blast their 3x3.
+    const plan = planClear(grid, runs, cascade === 1 ? swapped : []);
+    const cells = plan.cleared;
+    const points = scoreFor(runs, cascade) + blastScore(plan, cascade);
+    const type = grid[runs[0][0].row][runs[0][0].col]!.type;
+
+    applyBombs(grid, plan.made);
+    for (const p of plan.made) {
+      const el = elAt(p);
+      if (!el) continue;
+      drawGem(el, true);
+      el.classList.add('bomb-made');
+      // A timer, not animationend: reduced motion turns the animation off.
+      setTimeout(() => el.classList.remove('bomb-made'), POP_MS);
+    }
+    plan.detonated.forEach(showBlast);
 
     const popping = cells.map((p) => elAt(p)).filter((el): el is HTMLDivElement => !!el);
     popping.forEach((el) => el.classList.add('pop'));
-    floatPoints(cells, points, type);
+    floatPoints(runs.flat(), points, type);
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
     const messages = cascade >= 2 ? [t(settings.language, 'cascade', { n: cascade })] : [];
@@ -265,7 +304,7 @@ async function resolveCascades(token: number): Promise<void> {
     }
     if (messages.length > 0) toast(messages.join(' · '));
 
-    await wait(POP_MS);
+    await wait(plan.detonated.length > 0 ? Math.max(POP_MS, BLAST_MS) : POP_MS);
     if (token !== gameToken) return;
 
     for (const el of popping) {
@@ -273,7 +312,7 @@ async function resolveCascades(token: number): Promise<void> {
       el.remove();
     }
     clearCells(grid, cells);
-    const spawns = collapse(grid, Math.random);
+    const spawns = collapse(grid, Math.random, BOMB_SPAWN_CHANCE);
     addSpawns(spawns);
     render();
     await wait(FALL_BASE_MS + rowsOf(grid) * FALL_PER_ROW_MS);
@@ -494,7 +533,7 @@ const settings = initSettings({
   onGemStyleChange(style) {
     for (const el of els.values()) {
       // Popping gems are about to be removed; redrawing would restart their pop animation.
-      if (!el.classList.contains('pop')) el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast);
+      if (!el.classList.contains('pop')) drawGem(el, undefined, style);
     }
   },
   // Static text is already translated; refresh what main.ts writes itself.
