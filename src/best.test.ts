@@ -76,11 +76,11 @@ describe('best score per time limit (issue #22)', () => {
   }
 
   it('saves to the best of the limit the round started with, not the current setting', () => {
-    expect(body('setScore')).toMatch(/saveBest\(storage, roundLimit,/);
+    expect(body('setScore')).toMatch(/saveBest\(storage, roundLimit, best, roundDiagonal\)/);
   });
 
   it('switches the best on a new game and on a limit change before the first move', () => {
-    expect(body('newGame')).toContain('setRoundLimit(settings.timeLimit)');
+    expect(body('newGame')).toContain('setRoundLimit(settings.timeLimit, settings.diagonal)');
     expect(body('onTimeLimitChange')).toContain('setRoundLimit(minutes)');
   });
 });

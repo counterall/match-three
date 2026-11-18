@@ -10,14 +10,15 @@ Swap neighbouring gems to line up three or more of the same kind. Matched gems b
 - **Match:** a swap only counts if it makes a line of 3 or more. Otherwise the gems slide back.
 - **Score:** 10 points per gem cleared, plus 20 for each gem beyond 3 in a line. Every cascade step multiplies the points (×2, ×3, …).
 - **Bombs:** a line of 5 or more leaves a bomb of that colour behind (the gem you moved, or the middle one in a cascade). Bombs also drop in now and then (at most one per refill, about 1 in 12 refills). A bomb matches like a normal gem of its colour; when it's cleared it blasts the 3×3 square around it, setting off any bomb the blast reaches. Each blasted gem scores 10 and each bomb 50, times the cascade step.
+- **Diagonal matches** (Settings, off by default): when on, 3 or more of a colour in a line along either diagonal match too, and a diagonal line of 5 makes a bomb. Swaps stay up, down, left and right. A ⤢ mark next to Best shows a diagonal round. It applies from the next game, or straight away if you haven't moved yet.
 - **Time limit:** each round lasts 3 minutes by default (5 or 10 in Settings). The clock starts with your first move and pauses while Settings is open or the tab is hidden. Every 1,000 points adds 20 seconds. When time runs out, a cascade already falling still scores, then the round ends and **Play again** starts a new one.
 - **Pause:** once the clock is running, tap the pause button (left of **Hint**) to stop it. The board stays visible, lightly dimmed, but you can't move while paused; tap **Resume** (or the button again) to carry on. Switching away (another tab, or minimising the home-screen app on iOS/Android) pauses automatically.
 - **Hint:** press **Hint**, or wait a few seconds, and two gems you can swap will bounce.
 - **Stuck?** When no moves are left, the board shuffles itself.
 - **Board size** adapts to the screen: 8×8 on desktops and tablets, 6 columns × 8 rows on phones for bigger gems.
 - **No accidental zoom:** tapping quickly on a phone never zooms the page. In a browser tab, pinch zoom still works outside the board. In the home-screen app, the page doesn't zoom at all, like a native app.
-- Your best score is saved in the browser, separately for each round length (3, 5 and 10 minutes). The single best saved by earlier versions is not carried over.
-- **Settings:** pick a colour theme (Neon or Pastel), the gem style, the round's time limit and the language. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
+- Your best score is saved in the browser, separately for each round length (3, 5 and 10 minutes), and for diagonal games separately again. The single best saved by earlier versions is not carried over.
+- **Settings:** pick a colour theme (Neon or Pastel), the gem style, the round's time limit, diagonal matches and the language. Your choices are remembered. A new time limit applies from the next game, or straight away if you haven't moved yet.
 - **Gem style:** **Shapes** (geometric gems) or **Animals**: flat animal faces in their natural colours, in every theme. There are eight animals (wire fox terrier, husky, frog, parrot, black Shiba, penguin, bear, tiger), and each new game picks seven of them at random, so one sits out. Switching style redraws the board straight away, mid-game, with this game's animals.
 - **Languages:** English and Simplified Chinese (简体中文). The first visit follows your browser's language (any Chinese variant gets Simplified Chinese, everything else English). Switching in Settings changes the page straight away.
 - **Home screen:** on a phone, use *Share → Add to Home Screen* (iOS) or *Add to Home screen / Install app* (Android) to get a Neon Cascade app icon that opens full screen.
@@ -55,12 +56,12 @@ src/
   board.test.ts     Unit tests for the game logic
   gems.ts           Gem SVG shapes (colours come from the theme)
   animals.ts        Animal gem style: pool of eight flat animal faces, seven drawn per game
-  settings.ts       Settings model: themes, gem style, time limits, language, parsing, persistence
+  settings.ts       Settings model: themes, gem style, time limits, diagonal matches, language, parsing, persistence
   i18n.ts           UI text in English and Simplified Chinese, browser-language detection
   pause.ts          Pause rules (when pausing is allowed, auto-pause on hide)
-  settings-ui.ts    Settings popup (theme, gem-style, time-limit and language pickers)
+  settings-ui.ts    Settings popup (theme, gem-style, time-limit, diagonal and language pickers)
   timer.ts          Round timer rules: countdown with pauses, time bonus, m:ss
-  best.ts           Best score per round length, saved in localStorage
+  best.ts           Best score per round length and mode, saved in localStorage
   main.ts           Rendering, input, animations and game flow
   style.css         Theme tokens, layout and animations
 ```

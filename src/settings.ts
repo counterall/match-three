@@ -28,11 +28,13 @@ export interface Settings {
   timeLimit: TimeLimit;
   language: Language;
   gemStyle: GemStyleId;
+  /** Diagonal matches (issue #30): 3+ along a diagonal also match. */
+  diagonal: boolean;
 }
 
 export const SETTINGS_KEY = 'neon-cascade:settings';
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3, language: DEFAULT_LANGUAGE, gemStyle: 'shapes' };
+export const DEFAULT_SETTINGS: Settings = { theme: 'neon', timeLimit: 3, language: DEFAULT_LANGUAGE, gemStyle: 'shapes', diagonal: false };
 
 export function isThemeId(value: unknown): value is ThemeId {
   return THEMES.some((t) => t.id === value);
@@ -63,6 +65,7 @@ export function parseSettings(raw: string | null, fallbackLanguage: Language = D
     timeLimit: isTimeLimit(obj.timeLimit) ? obj.timeLimit : DEFAULT_SETTINGS.timeLimit,
     language: isLanguage(obj.language) ? obj.language : fallbackLanguage,
     gemStyle: isGemStyle(obj.gemStyle) ? obj.gemStyle : DEFAULT_SETTINGS.gemStyle,
+    diagonal: typeof obj.diagonal === 'boolean' ? obj.diagonal : DEFAULT_SETTINGS.diagonal,
   };
 }
 

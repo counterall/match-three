@@ -32,6 +32,7 @@ describe('themes', () => {
       timeLimit: 10,
       language: 'zh-CN',
       gemStyle: 'animals',
+      diagonal: false,
     });
   });
 });
