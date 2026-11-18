@@ -4,13 +4,21 @@ export const DEFAULT_ROWS = 8;
 export const DEFAULT_COLS = 8;
 export const GEM_TYPES = 7;
 
-/** Special gems (issue #28). A bomb still has a colour (type) and matches by it. */
-export type Special = 'bomb';
+/**
+ * Special gems. A special still has a colour (type) and matches by it. Bombs
+ * (issue #28) blast their 3x3; line gems (issue #32) fire along `dir`.
+ */
+export type Special = 'bomb' | 'line';
+
+/** Which way a line gem fires: its row, its column, or a diagonal (diag = ↘, anti = ↗). */
+export type LineDir = 'row' | 'col' | 'diag' | 'anti';
 
 export interface Gem {
   id: number;
   type: number;
   special?: Special;
+  /** Only on line gems: the direction of the run that made it. */
+  dir?: LineDir;
 }
 
 export interface Pos {
@@ -207,53 +215,85 @@ export function shuffle(grid: Grid, rng: Rng = Math.random, opts: MatchOptions =
   for (let r = 0; r < rows; r++) grid[r] = fresh[r];
 }
 
-// ---- Bombs (issue #28) ----
+// ---- Special gems: bombs (issue #28) and line gems (issue #32) ----
 
 /** A run at least this long leaves a bomb behind. */
 export const BOMB_RUN = 5;
-/** Chance that a refill drops in one bomb: about 1 in 12 refills. */
+/** A run of exactly this length leaves a line gem behind. */
+export const LINE_RUN = 4;
+/** Chance that a refill drops in one bomb: about 1 in 12 refills. Line gems never drop in. */
 export const BOMB_SPAWN_CHANCE = 1 / 12;
-/** Points per gem a blast clears, and the bonus per bomb that goes off (times the cascade). */
+/** Points per gem a blast or beam clears, and the bonus per bomb / line gem that goes off (times the cascade). */
 export const BLAST_POINTS = 10;
 export const BOMB_BONUS = 50;
+export const LINE_BONUS = 30;
+
+/** A special gem made in a clearing step: where, which kind, and (line gems) its direction. */
+export interface Made extends Pos {
+  special: Special;
+  dir?: LineDir;
+}
 
 /** What one clearing step does to the board. */
 export interface ClearPlan {
-  /** Cells whose gem turns into a bomb and stays on the board. */
-  made: Pos[];
-  /** Every cell to clear: the matched gems (minus `made`) plus everything blasted. */
+  /** Cells whose gem turns into a special and stays on the board. */
+  made: Made[];
+  /** Every cell to clear: the matched gems (minus `made`) plus everything blasted or beamed. */
   cleared: Pos[];
-  /** The cells in `cleared` that only a blast reached (not part of a match). */
+  /** The cells in `cleared` that only a blast or a beam reached (not part of a match). */
   blasted: Pos[];
   /** Bombs that went off, in chain order. */
   detonated: Pos[];
+  /** Line gems that fired, in chain order. */
+  fired: Pos[];
 }
 
 const posKey = (p: Pos) => `${p.row},${p.col}`;
 
+/** Step [dRow, dCol] along each line direction. */
+export const LINE_STEP: Record<LineDir, readonly [number, number]> = {
+  row: [0, 1],
+  col: [1, 0],
+  diag: [1, 1],
+  anti: [1, -1],
+};
+
+/** The direction of a run (its cells are listed in order along the line). */
+function runDir(run: Pos[]): LineDir {
+  const dr = run[1].row - run[0].row;
+  const dc = run[1].col - run[0].col;
+  if (dr === 0) return 'row';
+  if (dc === 0) return 'col';
+  return dr === dc ? 'diag' : 'anti';
+}
+
 /**
  * Works out a clearing step. Each run of BOMB_RUN+ turns one of its gems into a
- * bomb of the run's colour: the swapped gem if it's in the run, otherwise the one
- * nearest the middle. A gem that is already a bomb never becomes the new bomb (it
- * goes off instead). Every bomb being cleared blasts the 3x3 around it, and bombs
- * the blast reaches go off too. A bomb made in this step is never blasted.
+ * bomb of the run's colour, and each run of exactly LINE_RUN into a line gem
+ * firing along the run: the swapped gem if it's in the run, otherwise the one
+ * nearest the middle. A gem that is already special never becomes the new one (it
+ * goes off instead). Every bomb being cleared blasts the 3x3 around it; every line
+ * gem being cleared clears its whole line to both board edges; specials those
+ * reach go off too. A special made in this step is never cleared.
  */
 export function planClear(grid: Grid, runs: Pos[][], swapped: readonly Pos[] = []): ClearPlan {
-  const isBomb = (p: Pos) => grid[p.row]?.[p.col]?.special === 'bomb';
+  const specialAt = (p: Pos) => grid[p.row]?.[p.col]?.special;
   const swappedKeys = new Set(swapped.map(posKey));
   const madeKeys = new Set<string>();
-  const made: Pos[] = [];
+  const made: Made[] = [];
 
-  for (const run of runs) {
-    if (run.length < BOMB_RUN) continue;
-    const free = run.filter((p) => !isBomb(p) && !madeKeys.has(posKey(p)));
+  // Longest runs first, so a bomb gets first pick of the swapped gem over a line gem.
+  for (const run of [...runs].sort((a, b) => b.length - a.length)) {
+    const special: Special | null = run.length >= BOMB_RUN ? 'bomb' : run.length === LINE_RUN ? 'line' : null;
+    if (!special) continue;
+    const free = run.filter((p) => !specialAt(p) && !madeKeys.has(posKey(p)));
     if (free.length === 0) continue;
     const mid = (run.length - 1) / 2;
     const pick =
       free.find((p) => swappedKeys.has(posKey(p))) ??
       free.reduce((a, b) => (Math.abs(run.indexOf(b) - mid) < Math.abs(run.indexOf(a) - mid) ? b : a));
     madeKeys.add(posKey(pick));
-    made.push(pick);
+    made.push(special === 'line' ? { ...pick, special, dir: runDir(run) } : { ...pick, special });
   }
 
   const clearedKeys = new Set<string>();
@@ -266,34 +306,79 @@ export function planClear(grid: Grid, runs: Pos[][], swapped: readonly Pos[] = [
     clearedKeys.add(k);
     cleared.push(p);
     if (byBlast) blasted.push(p);
-    if (isBomb(p)) queue.push(p);
+    if (specialAt(p)) queue.push(p);
   };
   for (const p of matchedCells(runs)) add(p, false);
 
   const detonated: Pos[] = [];
+  const fired: Pos[] = [];
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
+  const onBoard = (r: number, c: number) => r >= 0 && r < rows && c >= 0 && c < cols;
   while (queue.length > 0) {
-    const b = queue.shift()!;
-    detonated.push(b);
-    for (let r = b.row - 1; r <= b.row + 1; r++) {
-      for (let c = b.col - 1; c <= b.col + 1; c++) {
-        if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c]) add({ row: r, col: c }, true);
+    const s = queue.shift()!;
+    const gem = grid[s.row][s.col]!;
+    if (gem.special === 'bomb') {
+      detonated.push(s);
+      for (let r = s.row - 1; r <= s.row + 1; r++) {
+        for (let c = s.col - 1; c <= s.col + 1; c++) {
+          if (onBoard(r, c) && grid[r][c]) add({ row: r, col: c }, true);
+        }
+      }
+    } else if (gem.special === 'line') {
+      fired.push(s);
+      const [dr, dc] = LINE_STEP[gem.dir ?? 'row'];
+      for (const sign of [1, -1]) {
+        for (let r = s.row + sign * dr, c = s.col + sign * dc; onBoard(r, c); r += sign * dr, c += sign * dc) {
+          if (grid[r][c]) add({ row: r, col: c }, true);
+        }
       }
     }
   }
-  return { made, cleared, blasted, detonated };
+  return { made, cleared, blasted, detonated, fired };
 }
 
-/** Turns the gems at `cells` into bombs (keeping their colour and id). */
-export function applyBombs(grid: Grid, cells: Pos[]): void {
-  for (const p of cells) {
-    const gem = grid[p.row][p.col];
-    if (gem) gem.special = 'bomb';
+/**
+ * How far each cell is from the nearest fired line gem along its beam, in cell
+ * widths (a diagonal step is √2), keyed "row,col". `main.ts` uses it to pop gems
+ * as the beam's front passes them. Read it before the line gems leave the grid.
+ */
+export function beamReach(grid: Grid, fired: Pos[]): Map<string, number> {
+  const reach = new Map<string, number>();
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
+  for (const s of fired) {
+    const gem = grid[s.row]?.[s.col];
+    if (gem?.special !== 'line') continue;
+    const [dr, dc] = LINE_STEP[gem.dir ?? 'row'];
+    const unit = dr !== 0 && dc !== 0 ? Math.SQRT2 : 1;
+    for (const sign of [1, -1]) {
+      for (let k = 1, r = s.row + sign * dr, c = s.col + sign * dc; r >= 0 && r < rows && c >= 0 && c < cols; k++, r += sign * dr, c += sign * dc) {
+        const key = posKey({ row: r, col: c });
+        reach.set(key, Math.min(reach.get(key) ?? Infinity, k * unit));
+      }
+    }
+  }
+  return reach;
+}
+
+/** Turns the gems at the made cells into their specials (keeping their colour and id). */
+export function applySpecials(grid: Grid, made: Made[]): void {
+  for (const m of made) {
+    const gem = grid[m.row][m.col];
+    if (!gem) continue;
+    gem.special = m.special;
+    if (m.dir) gem.dir = m.dir;
+    else delete gem.dir;
   }
 }
 
-/** Extra points for a step's blasts: BLAST_POINTS per blasted gem plus BOMB_BONUS per bomb, times the cascade. */
+/**
+ * Extra points for a step's blasts and beams: BLAST_POINTS per gem they cleared,
+ * plus BOMB_BONUS per bomb and LINE_BONUS per line gem, times the cascade.
+ */
 export function blastScore(plan: ClearPlan, cascade: number): number {
-  return (plan.blasted.length * BLAST_POINTS + plan.detonated.length * BOMB_BONUS) * cascade;
+  return (
+    (plan.blasted.length * BLAST_POINTS + plan.detonated.length * BOMB_BONUS + plan.fired.length * LINE_BONUS) * cascade
+  );
 }

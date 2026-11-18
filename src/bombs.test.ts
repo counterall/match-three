@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOMB_SPAWN_CHANCE,
-  applyBombs,
+  applySpecials,
   blastScore,
   clearCells,
   collapse,
@@ -51,7 +51,7 @@ describe('making bombs (5+ in a run)', () => {
     const plan = planClear(g, findRuns(g), [{ row: 0, col: 1 }, { row: 1, col: 1 }]);
     expect(keys(plan.made)).toEqual(['0,1']);
     expect(keys(plan.cleared)).toEqual(['0,0', '0,2', '0,3', '0,4']);
-    applyBombs(g, plan.made);
+    applySpecials(g, plan.made);
     expect(g[0][1]).toMatchObject({ type: 3, special: 'bomb' });
   });
 
@@ -74,11 +74,14 @@ describe('making bombs (5+ in a run)', () => {
     expect(plan.cleared).toHaveLength(5);
   });
 
-  it('makes no bomb from runs of 3 or 4', () => {
+  it('makes no bomb from runs of 3 or 4 (a 4-run makes a line gem instead, issue #32)', () => {
     const g = gridFrom(['3333456', ...BASE.slice(1)]);
     const plan = planClear(g, findRuns(g), [{ row: 0, col: 0 }, { row: 1, col: 0 }]);
-    expect(plan.made).toEqual([]);
-    expect(plan.cleared).toHaveLength(4);
+    expect(plan.made.filter((m) => m.special === 'bomb')).toEqual([]);
+    expect(plan.made).toEqual([{ row: 0, col: 0, special: 'line', dir: 'row' }]);
+    expect(plan.cleared).toHaveLength(3);
+    const h = gridFrom(['3334560', ...BASE.slice(1)]);
+    expect(planClear(h, findRuns(h)).made).toEqual([]);
   });
 });
 
@@ -158,7 +161,7 @@ describe('a whole step', () => {
     g[0][3] = { id: 2, type: 3, special: 'bomb' }; // part of the run: goes off, chains to (1,3)
     const plan = planClear(g, findRuns(g), [{ row: 0, col: 1 }, { row: 1, col: 1 }]);
     const made = g[0][1]!;
-    applyBombs(g, plan.made);
+    applySpecials(g, plan.made);
     clearCells(g, plan.cleared);
     collapse(g, seq(0.4, 0.6, 0.2), BOMB_SPAWN_CHANCE);
     expect(g.flat().every((x) => x !== null)).toBe(true);
@@ -171,10 +174,10 @@ describe('a whole step', () => {
 
 describe('blastScore', () => {
   it('scores 10 per blasted gem plus 50 per bomb, times the cascade', () => {
-    const plan = { made: [], cleared: [], blasted: new Array<Pos>(6), detonated: new Array<Pos>(2) };
+    const plan = { made: [], cleared: [], blasted: new Array<Pos>(6), detonated: new Array<Pos>(2), fired: [] };
     expect(blastScore(plan, 1)).toBe(6 * 10 + 2 * 50);
     expect(blastScore(plan, 3)).toBe((6 * 10 + 2 * 50) * 3);
-    expect(blastScore({ made: [], cleared: [], blasted: [], detonated: [] }, 2)).toBe(0);
+    expect(blastScore({ made: [], cleared: [], blasted: [], detonated: [], fired: [] }, 2)).toBe(0);
   });
 });
 

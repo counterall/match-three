@@ -10,6 +10,7 @@
 // fixed-colour exception: it is the same flame in every theme.
 
 import { ANIMAL_POOL, DEFAULT_CAST, animalSvg, type AnimalCast } from './animals';
+import type { LineDir, Special } from './board';
 import type { GemStyleId } from './settings';
 
 interface GemShape {
@@ -42,26 +43,34 @@ const SHAPES: GemShape[] = [
 
 export const GEM_DEFS_ID = 'gem-defs';
 
+/** What a special gem needs for its artwork: its kind and, for line gems, its direction. */
+export interface GemMark {
+  special?: Special;
+  dir?: LineDir;
+}
+
+/** Rotation of the line badge's double arrow for each firing direction (issue #32). */
+export const LINE_BADGE_ANGLE: Record<LineDir, number> = { row: 0, col: 90, diag: 45, anti: -45 };
+
 /**
  * SVG for one gem in the given style. For animals, `cast` says which pool animal
- * draws each gem type (see animals.ts); shapes ignore it.
+ * draws each gem type (see animals.ts); shapes ignore it. A special gem (`mark`)
+ * keeps its normal artwork and wears a corner badge, in both styles (issue #32):
+ * a bomb badge, or a line badge whose arrow points the way it fires.
  */
 export function gemSvg(
   type: number,
   style: GemStyleId = 'shapes',
   cast: AnimalCast = DEFAULT_CAST,
-  bomb = false,
+  mark: GemMark = {},
 ): string {
-  if (style === 'animals') {
-    const animal = animalSvg(ANIMAL_POOL[cast[type]]);
-    // Animals are told apart by the animal, so a bomb keeps its face and wears a
-    // small (untinted) bomb badge in the corner.
-    if (!bomb) return animal;
-    // A <g>, not a nested <svg>: `.gem svg` rules (size, pop, pulse) must not apply twice.
-    const badge = `<g class="bomb-badge" transform="translate(50 50) scale(0.58)">${bombLayers(false)}</g>`;
-    return animal.replace(/<\/svg>$/, `${badge}</svg>`);
-  }
-  if (bomb) return `<svg viewBox="0 0 100 100" aria-hidden="true">${bombLayers(true)}</svg>`;
+  const base = style === 'animals' ? animalSvg(ANIMAL_POOL[cast[type]]) : shapeSvg(type);
+  const badge = badgeSvg(mark);
+  // A <g>, not a nested <svg>: `.gem svg` rules (size, pop, pulse) must not apply twice.
+  return badge ? base.replace(/<\/svg>\s*$/, `${badge}</svg>`) : base;
+}
+
+function shapeSvg(type: number): string {
   const { shape, cx, cy, gx = cx - 13, gy = cy - 17 } = SHAPES[type];
   return `<svg viewBox="0 0 100 100" aria-hidden="true">
     <g class="gem-body">${shape}</g>
@@ -72,20 +81,35 @@ export function gemSvg(
   </svg>`;
 }
 
+/** The corner badge for a special gem, or '' for a plain one. */
+function badgeSvg({ special, dir }: GemMark): string {
+  if (special === 'bomb') return `<g class="bomb-badge" transform="translate(50 50) scale(0.58)">${bombLayers()}</g>`;
+  if (special === 'line') {
+    return `<g class="line-badge" transform="translate(80 80)">
+      <circle class="line-badge-disc" r="17"/>
+      <g transform="rotate(${LINE_BADGE_ANGLE[dir ?? 'row']})">
+        <path class="line-badge-arrow" d="M-8 0H8"/>
+        <polygon class="line-badge-head" points="-13,0 -6,-6 -6,6"/>
+        <polygon class="line-badge-head" points="13,0 6,-6 6,6"/>
+      </g>
+    </g>`;
+  }
+  return '';
+}
+
 /**
  * The bomb (issue #28; design from public/previews/bomb.html): round body, metal
- * cap, striped fuse with a flickering spark, and a wicked face. On the board the
- * body is tinted and rimmed with the gem colour (--fc/--c), since a bomb matches
- * by colour. Colours are --bomb-* theme tokens; the spark's fire gradient lives in
+ * cap, striped fuse with a flickering spark, and a wicked face. Since issue #32 it
+ * is only drawn as a badge on the gem, so the gem itself shows the colour it
+ * matches. Colours are --bomb-* theme tokens; the spark's fire gradient lives in
  * the shared defs.
  */
-function bombLayers(tinted: boolean): string {
-  const tint = tinted ? '<circle class="bomb-tint" cx="46" cy="58" r="31"/>' : '';
+function bombLayers(): string {
   return `<path d="M66 30 C 72 20, 76 22, 80 14" fill="none" stroke="var(--bomb-fuse)" stroke-width="4" stroke-linecap="round"/>
     <path d="M66 30 C 72 20, 76 22, 80 14" fill="none" stroke="var(--bomb-fuse-band)" stroke-width="4" stroke-dasharray="2 4"/>
     <rect x="56" y="24" width="16" height="12" rx="2.5" transform="rotate(38 64 30)" fill="var(--bomb-cap)" stroke="var(--bomb-rim)" stroke-width="2.5"/>
-    <circle class="bomb-body" cx="46" cy="58" r="31"/>${tint}
-    <circle class="${tinted ? 'bomb-ring' : 'bomb-rim'}" cx="46" cy="58" r="31"/>
+    <circle class="bomb-body" cx="46" cy="58" r="31"/>
+    <circle class="bomb-rim" cx="46" cy="58" r="31"/>
     <g clip-path="url(#gem-clip-bomb)">
       <rect class="gem-shade" x="0" y="0" width="100" height="100" fill="url(#gem-shade-grad)"/>
       <ellipse class="gem-gloss" cx="30" cy="38" rx="11" ry="6" transform="rotate(-35 30 38)" fill="url(#gem-gloss-grad)"/>
