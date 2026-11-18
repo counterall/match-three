@@ -50,6 +50,15 @@
   --blast-edge: rgba(255, 140, 26, 0.55);
   --line-badge-bg: #0a061e;
   --line-badge-fg: #ffffff;
+  /* Combo callouts (issue #34): tier colours run cool to hot; the word takes the
+     tier colour (--callout-word of it), on a pill tinted --callout-tint of it. */
+  --callout-1: var(--gem-1);
+  --callout-2: var(--gem-3);
+  --callout-3: var(--gem-4);
+  --callout-4: var(--gem-0);
+  --callout-word: 100%; /* share of the tier colour in the word; the rest is --text */
+  --callout-tint: 0%;
+  --callout-border: 1.5px;
   --beam-core: rgba(255, 255, 255, 0.95);
 }
 
@@ -96,6 +105,14 @@
   --blast-edge: rgba(245, 169, 127, 0.6);
   --line-badge-bg: #ffffff;
   --line-badge-fg: #4a3f6b;
+  /* Pastel: the word stays ink for contrast; the tier colour goes to the border and tint. */
+  --callout-1: #6bb8e0;
+  --callout-2: #5fc48a;
+  --callout-3: #f0905a;
+  --callout-4: #e46aa8;
+  --callout-word: 0%;
+  --callout-tint: 18%;
+  --callout-border: 2px;
   --beam-core: rgba(255, 255, 255, 0.95);
 }
 
@@ -590,9 +607,14 @@ body {
 }
 
 .toast {
+  --callout: var(--accent-2);
   position: absolute;
   left: 50%;
   top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   transform: translate(-50%, -50%) scale(0.8);
   pointer-events: none;
   padding: 10px 20px;
@@ -603,9 +625,9 @@ body {
   letter-spacing: 0.06em;
   color: var(--text);
   background: var(--toast-bg);
-  border: 1px solid var(--accent-2);
-  box-shadow: 0 0 calc(18px * var(--glow) + 4px) color-mix(in srgb, var(--accent-2) 50%, transparent);
-  text-shadow: 0 0 calc(8px * var(--glow)) var(--accent-2);
+  border: 1px solid var(--callout);
+  box-shadow: 0 0 calc(18px * var(--glow) + 4px) color-mix(in srgb, var(--callout) 50%, transparent);
+  text-shadow: 0 0 calc(8px * var(--glow)) var(--callout);
   opacity: 0;
   transition: opacity 200ms ease, transform 200ms ease;
 }
@@ -613,6 +635,109 @@ body {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
+}
+
+/* Combo callouts (issue #34): tiers 1–4 by cascade step, and the move total.
+   The word grows about 10% per tier; the pill takes the tier colour. */
+.toast[data-tier] {
+  border-width: var(--callout-border);
+  background: color-mix(in srgb, var(--callout) var(--callout-tint), var(--toast-bg));
+}
+
+.toast[data-tier] .callout-word {
+  color: color-mix(in srgb, var(--callout) var(--callout-word), var(--text));
+  font-size: calc(1em * var(--callout-scale, 1));
+}
+
+/* Tier 0 (a step-1 tag or a lone bonus): the plain toast look, no tier colour. */
+.toast[data-tier='0'] {
+  --callout-tint: 0%;
+  border-width: 1px;
+}
+
+.toast[data-tier='1'] {
+  --callout: var(--callout-1);
+  --callout-scale: 1;
+}
+
+.toast[data-tier='2'] {
+  --callout: var(--callout-2);
+  --callout-scale: 1.1;
+}
+
+.toast[data-tier='3'] {
+  --callout: var(--callout-3);
+  --callout-scale: 1.2;
+}
+
+.toast[data-tier='4'] {
+  --callout: var(--callout-4);
+  --callout-scale: 1.35;
+}
+
+.toast[data-tier='total'] {
+  --callout: var(--accent);
+  --callout-scale: 1.2;
+  --callout-word: 0%;
+}
+
+.toast.show[data-tier] {
+  animation: callout-pop 260ms ease-out;
+}
+
+/* Tiers 3 and 4 add one glow pulse; it scales with --glow, so Pastel (0) stays flat
+   (at --glow 0 the pulse frame equals the resting shadow). */
+.toast.show[data-tier='3'],
+.toast.show[data-tier='4'] {
+  animation:
+    callout-pop 260ms ease-out,
+    callout-pulse 600ms ease-out 260ms;
+}
+
+@keyframes callout-pop {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes callout-pulse {
+  50% {
+    box-shadow: 0 0 calc(40px * var(--glow) + 4px)
+      color-mix(in srgb, var(--callout) calc(50% + 50% * var(--glow)), transparent);
+  }
+}
+
+/* Second line: Bomb!/Line! chips and bonus time. */
+.callout-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.6em;
+  letter-spacing: 0.04em;
+  text-shadow: none;
+}
+
+/* With no word above it (a step-1 tag or a lone bonus), the second line is the callout. */
+.callout-sub:only-child {
+  font-size: 0.8em;
+}
+
+.callout-chip {
+  padding: 0.1em 0.7em;
+  border-radius: 999px;
+  color: var(--line-badge-fg);
+  background: var(--line-badge-bg);
+  border: 1px solid var(--line-badge-fg);
+}
+
+.callout-extra {
+  color: var(--text);
 }
 
 /* ---- Board overlays: game over (time's up) and paused ---- */
@@ -1065,6 +1190,14 @@ button:disabled {
 
 /* Reduced motion: the blast and the beam are plain flashes, with no scaling or sweep. */
 @media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.show {
+    transform: translate(-50%, -50%);
+    transition: opacity 200ms ease;
+  }
+  .toast.show[data-tier] {
+    animation: none;
+  }
   .blast {
     animation-name: blast-flash;
   }

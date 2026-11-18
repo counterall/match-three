@@ -33,6 +33,7 @@ import { Countdown, bonusSeconds, formatTime } from './timer';
 import { canPause, shouldAutoPause } from './pause';
 import { loadBest, saveBest } from './best';
 import { DEFAULT_SETTINGS, type TimeLimit } from './settings';
+import { CALLOUT_MS, LONG_CALLOUT_MS, calloutKey, calloutMs, showMoveTotal, stepCallout, type Callout } from './combo';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -192,14 +193,59 @@ function setScore(value: number): void {
   bestEl.textContent = best.toLocaleString(settings.language);
 }
 
+/**
+ * What the toast shows: a word line (styled by `tier`: '1'–'4' or 'total', issue #34)
+ * and an optional smaller second line of chips (Bomb!/Line!) and extra text (+20s).
+ */
+interface ToastContent {
+  word?: string;
+  tier?: string;
+  chips?: string[];
+  extra?: string;
+}
+
 let toastTimer = 0;
-function toast(text: string, ms = 1100): void {
-  toastEl.textContent = text;
+function toast(content: string | ToastContent, ms = CALLOUT_MS): void {
+  const c = typeof content === 'string' ? { word: content } : content;
+  const parts: HTMLElement[] = [];
+  if (c.word) parts.push(span('callout-word', c.word));
+  const chips = c.chips ?? [];
+  if (chips.length > 0 || c.extra) {
+    const items = chips.map((chip) => span('callout-chip', chip));
+    if (c.extra) items.push(span('callout-extra', c.extra));
+    const sub = span('callout-sub', '');
+    // Spaces between the parts so the live region reads "Great! ×3 Bomb! +20s", not
+    // one run-on word; whitespace between flex items isn't drawn.
+    items.forEach((item, i) => (i > 0 ? sub.append(' ', item) : sub.append(item)));
+    parts.push(sub);
+  }
+  toastEl.replaceChildren(...parts.flatMap((part, i) => (i > 0 ? [' ', part] : [part])));
+  if (c.tier) toastEl.dataset.tier = c.tier;
+  else delete toastEl.dataset.tier;
   toastEl.classList.remove('show');
   void toastEl.offsetWidth;
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+
+function span(className: string, text: string): HTMLSpanElement {
+  const el = document.createElement('span');
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+/** A cascade step's callout as toast content, in the current language (issue #34). */
+function calloutContent(c: Callout): ToastContent {
+  const lang = settings.language;
+  const key = calloutKey(c.tier);
+  return {
+    word: key ? t(lang, key, { n: c.step }) : undefined,
+    tier: String(c.tier), // '0' (no word: a lone tag or bonus) still pops in
+    chips: c.tags.map((kind) => t(lang, kind === 'bomb' ? 'tagBomb' : 'tagLine')),
+    extra: c.bonus > 0 ? t(lang, 'bonusTime', { s: c.bonus }) : undefined,
+  };
 }
 
 /** Flash over the 3x3 square around a bomb that goes off (clipped by the board's overflow). */
@@ -300,8 +346,14 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
     return;
   }
 
-  await resolveCascades(token, [a, b]);
+  const totalShown = await resolveCascades(token, [a, b]);
   if (token !== gameToken) return;
+  // Time ran out during a long chain: let its move total show before "Time's up"
+  // covers the board (input is already blocked by timeUp).
+  if (timeUp && totalShown) {
+    await wait(LONG_CALLOUT_MS);
+    if (token !== gameToken) return;
+  }
   finishMove();
 }
 
@@ -312,9 +364,13 @@ function finishMove(): void {
   else if (!paused) resetIdle();
 }
 
-/** `swapped`: the two cells of the player's swap, so a run's new special lands on the moved gem. */
-async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
+/**
+ * `swapped`: the two cells of the player's swap, so a run's new special lands on the moved gem.
+ * Resolves true when it ended by showing the move total (issue #34).
+ */
+async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> {
   let cascade = 1;
+  let moveTotal = 0; // every point this move scored, for the move-total callout
   for (let runs = findRuns(grid, matchOpts()); runs.length > 0; runs = findRuns(grid, matchOpts())) {
     // Specials: 5+ runs leave a bomb (issue #28), 4-runs a line gem (issue #32);
     // cleared bombs blast their 3x3, cleared line gems their whole line.
@@ -354,19 +410,23 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
     floatPoints(runs.flat(), points, type);
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
-    const messages = cascade >= 2 ? [t(settings.language, 'cascade', { n: cascade })] : [];
+    moveTotal += points;
+    let granted = 0;
     // add() refuses once the clock has run out, even if the tick hasn't noticed yet.
     if (bonus > 0 && clock.add(bonus * 1000, performance.now())) {
       flashTimeBonus();
-      messages.push(t(settings.language, 'bonusTime', { s: bonus }));
+      granted = bonus;
     }
-    if (messages.length > 0) toast(messages.join(' · '));
+    // Combo callout (issue #34): the word climbs with the step; specials made and
+    // bonus time go on its second line.
+    const callout = stepCallout(cascade, plan.made, granted);
+    if (callout) toast(calloutContent(callout), calloutMs(callout.tier));
 
     // A blast (and, under reduced motion, a beam's flash) runs BLAST_MS; a beam's
     // sweep takes one pop, and its farthest gem pops lastPop ms in.
     const flashing = plan.detonated.length > 0 || (reducedMotion && plan.fired.length > 0);
     await wait(Math.max(POP_MS + lastPop, flashing ? BLAST_MS : 0));
-    if (token !== gameToken) return;
+    if (token !== gameToken) return false;
 
     for (const el of popping) {
       els.delete(Number(el.dataset.id));
@@ -377,20 +437,28 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
     addSpawns(spawns);
     render();
     await wait(FALL_BASE_MS + rowsOf(grid) * FALL_PER_ROW_MS);
-    if (token !== gameToken) return;
+    if (token !== gameToken) return false;
     cascade++;
   }
 
-  if (!findMove(grid, matchOpts())) {
+  const hasMove = findMove(grid, matchOpts()) !== null;
+  // The board has settled: a long chain shows what the whole move scored ("No moves" wins).
+  const totalShown = hasMove && showMoveTotal(cascade - 1);
+  if (totalShown) {
+    const n = moveTotal.toLocaleString(settings.language);
+    toast({ word: t(settings.language, 'moveTotal', { n }), tier: 'total' }, LONG_CALLOUT_MS);
+  }
+  if (!hasMove) {
     toast(t(settings.language, 'noMoves'), 1400);
     await wait(700);
-    if (token !== gameToken) return;
+    if (token !== gameToken) return false;
     shuffle(grid, Math.random, matchOpts());
     boardEl.classList.add('shuffling');
     render();
     await wait(SWAP_MS * 2);
     boardEl.classList.remove('shuffling');
   }
+  return totalShown;
 }
 
 // ---- Round timer ----
