@@ -538,6 +538,8 @@ function showGameOver(): void {
     saveDaily(storage, rec);
     streakCount = streakOn(rec, roundDate);
   }
+  // Describe the card by what it shows: the daily lines only in a daily.
+  gameOverEl.setAttribute('aria-describedby', daily ? 'daily-title final-score-line new-best today-best streak' : 'final-score-line new-best');
   dailyTitleEl.hidden = !daily;
   todayBestEl.hidden = !daily;
   streakEl.hidden = !daily;
@@ -574,10 +576,19 @@ function announceDaily(): void {
   );
 }
 
-/** Daily button: pressed while a daily is on; a dot until today's daily has been finished. */
+/**
+ * Daily button: highlighted while a daily is on (data-mode; not aria-pressed, since
+ * pressing it again restarts the daily rather than turning it off), and a dot until
+ * today's daily has been finished, which its label says too.
+ */
 function syncDailyButton(): void {
-  dailyBtn.setAttribute('aria-pressed', String(mode === 'daily'));
-  dailyBtn.dataset.unplayed = String(!playedOn(loadDaily(storage), dailyDate(new Date())));
+  const unplayed = !playedOn(loadDaily(storage), dailyDate(new Date()));
+  const label: MessageKey = unplayed ? 'dailyUnplayed' : 'dailyChallenge';
+  dailyBtn.dataset.mode = mode;
+  dailyBtn.dataset.unplayed = String(unplayed);
+  dailyBtn.dataset.i18nLabel = label; // a language switch re-translates it
+  dailyBtn.setAttribute('aria-label', t(settings.language, label));
+  dailyBtn.title = t(settings.language, label);
 }
 
 /**
@@ -796,5 +807,6 @@ const settings = initSettings({
 });
 if (document.hidden) clock.hold('hidden', performance.now());
 setInterval(updateClock, TICK_MS);
+setInterval(syncDailyButton, 60_000); // a new day brings the dot back, even with the tab left open
 
 newGame();

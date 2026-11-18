@@ -65,7 +65,7 @@
             <button id="resume" type="button" data-i18n="resume">Resume</button>
           </div>
         </div>
-        <div id="game-over" class="overlay game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="daily-title final-score-line new-best today-best streak" hidden>
+        <div id="game-over" class="overlay game-over" role="dialog" aria-labelledby="game-over-title" aria-describedby="final-score-line new-best" hidden>
           <h2 id="game-over-title" data-i18n="timesUp">Time's up</h2>
           <p id="daily-title" class="daily-title" hidden><svg class="icon-calendar" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span id="daily-title-text"></span></p>
           <p id="final-score-line" class="final"><span class="label" data-i18n="finalScore">Final score</span><span id="final-score" class="value">0</span></p>
@@ -84,7 +84,7 @@
           <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
           <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg>
         </button>
-        <button id="daily" class="icon-btn" type="button" aria-label="Daily challenge" title="Daily challenge" data-i18n-label="dailyChallenge" aria-pressed="false" data-unplayed="true">
+        <button id="daily" class="icon-btn" type="button" aria-label="Daily challenge (not played today)" title="Daily challenge (not played today)" data-i18n-label="dailyUnplayed" data-mode="free" data-unplayed="true">
           <svg class="stroke-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>
           <span class="daily-dot"></span>
         </button>
@@ -120,13 +120,13 @@
         <section class="settings-section">
           <h3 id="time-limit-title" data-i18n="timeLimit">Time limit</h3>
           <div id="time-options" class="pill-group" role="radiogroup" aria-labelledby="time-limit-title"></div>
-          <p class="settings-note" data-i18n="timeLimitNote">Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.</p>
+          <p class="settings-note" data-i18n="timeLimitNote">Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds. The daily challenge is always 3 minutes.</p>
         </section>
 
         <section class="settings-section">
           <h3 id="diagonal-title" data-i18n="diagonal">Diagonal matches</h3>
           <div id="diagonal-options" class="pill-group" role="radiogroup" aria-labelledby="diagonal-title"></div>
-          <p class="settings-note" data-i18n="diagonalNote">Lines of 3 along a diagonal match too. Applies from the next game, or straight away if you haven't moved yet. Diagonal games keep their own best.</p>
+          <p class="settings-note" data-i18n="diagonalNote">Lines of 3 along a diagonal match too. Applies from the next game, or straight away if you haven't moved yet. Diagonal games keep their own best. The daily challenge follows its own twist.</p>
         </section>
 
         <section class="settings-section">

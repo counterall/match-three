@@ -947,7 +947,7 @@ button:disabled {
 }
 
 /* Daily: filled while a daily round is on; a dot until today's daily is played. */
-#daily[aria-pressed='true'] {
+#daily[data-mode='daily'] {
   background: color-mix(in srgb, var(--btn) 18%, transparent);
 }
 

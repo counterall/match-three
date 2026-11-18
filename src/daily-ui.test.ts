@@ -35,7 +35,7 @@ describe('controls: icon buttons only', () => {
   });
 
   it('draws each as an icon with a translated label and tooltip, and no visible text', () => {
-    const keys: Record<string, MessageKey> = { daily: 'dailyChallenge', hint: 'hint', 'new-game': 'newGame', 'open-settings': 'settings' };
+    const keys: Record<string, MessageKey> = { daily: 'dailyUnplayed', hint: 'hint', 'new-game': 'newGame', 'open-settings': 'settings' };
     for (const id of ids) {
       const btn = element(id);
       expect(btn, id).toMatch(/class="icon-btn[ "]/);
@@ -49,12 +49,17 @@ describe('controls: icon buttons only', () => {
     }
   });
 
-  it('marks the Daily button pressed in a daily, with a dot until today is played', () => {
-    expect(tag('daily')).toMatch(/aria-pressed="false"/);
+  it('highlights the Daily button in a daily, with a dot (and label) until today is played', () => {
+    // Not a toggle: pressing it again restarts today's daily, so no aria-pressed.
+    expect(tag('daily')).not.toMatch(/aria-pressed/);
     expect(element('daily')).toMatch(/class="daily-dot"/);
+    expect(css).toMatch(/#daily\[data-mode='daily'\]/);
     expect(css).toMatch(/\[data-unplayed='true'\] \.daily-dot/);
-    expect(fn('syncDailyButton')).toMatch(/aria-pressed/);
-    expect(fn('syncDailyButton')).toMatch(/playedOn\(/);
+    const sync = fn('syncDailyButton');
+    expect(sync).toMatch(/playedOn\(/);
+    expect(sync).toMatch(/dailyBtn\.dataset\.mode = mode/);
+    expect(sync).toMatch(/'dailyUnplayed' : 'dailyChallenge'/);
+    expect(mainSrc).toMatch(/setInterval\(syncDailyButton, 60_000\)/);
   });
 
   it('keeps the tooltip in the UI language', () => {
@@ -105,6 +110,11 @@ describe('HUD: icon labels', () => {
 describe('game-over card in a daily', () => {
   const card = body.match(/<div id="game-over"[\s\S]*?<\/button>\s*<\/div>\s*<\/div>/)?.[0] ?? '';
 
+  it('describes the card with the daily lines only in a daily', () => {
+    expect(tag('game-over')).toContain('aria-describedby="final-score-line new-best"');
+    expect(fn('showGameOver')).toMatch(/daily \? 'daily-title final-score-line new-best today-best streak' : 'final-score-line new-best'/);
+  });
+
   it('has the date line, today’s best, the streak and a Free play button, hidden in free play', () => {
     for (const id of ['daily-title', 'today-best', 'streak', 'free-play']) {
       expect(card, id).toContain(`id="${id}"`);
@@ -115,7 +125,7 @@ describe('game-over card in a daily', () => {
 
   it('has no Share feature', () => {
     for (const src of [html, mainSrc, i18nSrc]) {
-      expect(src).not.toMatch(/share/i);
+      expect(src).not.toMatch(/\bshare\b|navigator\.share|id="share/i);
       expect(src).not.toMatch(/clipboard/i);
     }
   });
@@ -133,6 +143,7 @@ describe('i18n', () => {
   it('has every daily string in every language', () => {
     const keys: MessageKey[] = [
       'dailyChallenge',
+      'dailyUnplayed',
       'dailyTitle',
       'todayBest',
       'todayBestLabel',
