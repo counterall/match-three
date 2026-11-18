@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Neon Cascade · bomb design preview</title>
+<!--
+  Issue #26: standalone design preview for the planned bomb gem. Not part of the
+  game; nothing here is loaded by index.html. Gem shapes and colours mirror
+  src/gems.ts and the theme tokens in src/style.css (src/bomb-preview.test.ts
+  keeps them in step). Bomb colours are proposed tokens, one set per theme.
+-->
+<style>
+  [data-theme='neon'] {
+    --bg: #07041a;
+    --text: #e9e6ff;
+    --muted: #9a92c9;
+    --board-bg: rgba(10, 6, 30, 0.85);
+    --grid-line: rgba(120, 90, 255, 0.12);
+    --gem-fill-opacity: 0.5;
+    --gem-shade: 0.85;
+    --gem-gloss: 0.85;
+    --gem-0: #ff2bd6;
+    --gem-1: #00f0ff;
+    --gem-2: #39ff14;
+    --gem-3: #fff200;
+    --gem-4: #ff8c1a;
+    --gem-5: #b44dff;
+    --gem-6: #ff3b5c;
+    --bomb-body: #2a2346;
+    --bomb-rim: #8f7dff;
+    --bomb-cap: #9aa0b8;
+    --bomb-fuse: #c9a46a;
+    --bomb-fuse-band: #7a5a2e;
+    --bomb-face: #ffffff;
+    --bomb-eye: #ff3b30;
+    --bomb-mouth: #ff2bd6;
+  }
+  [data-theme='pastel'] {
+    --bg: #fbf5ff;
+    --text: #4a3f6b;
+    --muted: #8d82ab;
+    --board-bg: rgba(255, 255, 255, 0.65);
+    --grid-line: rgba(160, 130, 200, 0.14);
+    --gem-fill-opacity: 0.92;
+    --gem-shade: 0.6;
+    --gem-gloss: 0.95;
+    --gem-0: #f49ac8;
+    --gem-1: #7cc8ec;
+    --gem-2: #86d9a6;
+    --gem-3: #f2d16b;
+    --gem-4: #f5a97f;
+    --gem-5: #b39cf0;
+    --gem-6: #f0848f;
+    --bomb-body: #4a3f6b;
+    --bomb-rim: #4a3f6b;
+    --bomb-cap: #b7b2cc;
+    --bomb-fuse: #c9a46a;
+    --bomb-fuse-band: #7a5a2e;
+    --bomb-face: #ffffff;
+    --bomb-eye: #e5484d;
+    --bomb-mouth: #e46aa8;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  header, section { background: var(--bg); color: var(--text); padding: 20px; }
+  header h1 { margin: 0 0 8px; font-size: 1.3rem; }
+  header ul { margin: 0; padding-left: 1.2em; color: var(--muted); }
+  section h2 { margin: 0 0 12px; }
+  @media (max-width: 400px) {
+    header, section { padding: 14px; }
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .label { font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  .scroll { max-width: 100%; overflow-x: auto; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, var(--cell));
+    width: max-content;
+    background-color: var(--board-bg);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    border-radius: 12px;
+  }
+  /* As on the real board: each gem is drawn at 80% of its cell, centred. */
+  .cell { width: var(--cell); height: var(--cell); display: grid; place-items: center; }
+  .cell svg { display: block; width: 80%; height: 80%; overflow: visible; }
+  .big { --cell: 220px; }
+  .big svg { width: 100%; height: 100%; }
+
+  [data-type='0'] { --c: var(--gem-0); }
+  [data-type='1'] { --c: var(--gem-1); }
+  [data-type='2'] { --c: var(--gem-2); }
+  [data-type='3'] { --c: var(--gem-3); }
+  [data-type='4'] { --c: var(--gem-4); }
+  [data-type='5'] { --c: var(--gem-5); }
+  [data-type='6'] { --c: var(--gem-6); }
+  .gem-body { fill: var(--c); fill-opacity: var(--gem-fill-opacity); stroke: var(--c); stroke-width: 6; stroke-linejoin: round; }
+  .gem-shade { opacity: var(--gem-shade); }
+  .gem-gloss { opacity: var(--gem-gloss); }
+
+  .bomb-body { fill: var(--bomb-body); stroke: var(--bomb-rim); stroke-width: 3; }
+  .spark { transform-box: fill-box; transform-origin: center; animation: flicker 0.35s ease-in-out infinite alternate; }
+  @keyframes flicker {
+    from { transform: scale(0.8) rotate(0deg); }
+    to { transform: scale(1.15) rotate(25deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spark { animation: none; }
+  }
+</style>
+</head>
+<body>
+<!-- Shared defs, once per page (as gemDefsSvg() does in the game). The neutral
+     white/black gradients are the same deliberate exception as in gems.ts; the
+     spark's fire gradient is the bomb's own, fixed in every theme. -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <clipPath id="clip-0"><circle cx="50" cy="50" r="34"/></clipPath>
+    <clipPath id="clip-1"><polygon points="50,12 88,50 50,88 12,50"/></clipPath>
+    <clipPath id="clip-2"><polygon points="50,14 88,82 12,82"/></clipPath>
+    <clipPath id="clip-3"><rect x="20" y="20" width="60" height="60" rx="8"/></clipPath>
+    <clipPath id="clip-4"><polygon points="50,12 83,31 83,69 50,88 17,69 17,31"/></clipPath>
+    <clipPath id="clip-5"><polygon points="50,10 61,38 90,38 66,56 75,86 50,68 25,86 34,56 10,38 39,38"/></clipPath>
+    <clipPath id="clip-6"><path d="M50 84 L18 52 A17 17 0 0 1 50 26 A17 17 0 0 1 82 52 Z"/></clipPath>
+    <clipPath id="clip-bomb"><circle cx="46" cy="58" r="31"/></clipPath>
+    <linearGradient id="shade-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.6"/>
+      <stop offset="0.42" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.58" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="gloss-grad">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="fire-grad">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.35" stop-color="#ffe14d"/>
+      <stop offset="1" stop-color="#ff5a1f"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<header data-theme="neon">
+  <h1>Neon Cascade · bomb design preview</h1>
+  <ul>
+    <li>5+ in a row: the gem you moved turns into a bomb (in a cascade, the middle gem of the run).</li>
+    <li>Bombs also fall in rarely: about 1 in 12 new gems, at most 4 on the board.</li>
+    <li>Match 3+ bombs: each one blasts the 3×3 square around it, and bombs caught in a blast go off too.</li>
+  </ul>
+</header>
+
+<script>
+  // Shapes, gloss positions and layers copied from src/gems.ts (SHAPES, gemSvg).
+  const SHAPES = [
+    { shape: '<circle cx="50" cy="50" r="34"/>', cx: 50, cy: 50 },
+    { shape: '<polygon points="50,12 88,50 50,88 12,50"/>', cx: 50, cy: 50 },
+    { shape: '<polygon points="50,14 88,82 12,82"/>', cx: 50, cy: 60, gx: 43, gy: 52 },
+    { shape: '<rect x="20" y="20" width="60" height="60" rx="8"/>', cx: 50, cy: 50 },
+    { shape: '<polygon points="50,12 83,31 83,69 50,88 17,69 17,31"/>', cx: 50, cy: 50 },
+    { shape: '<polygon points="50,10 61,38 90,38 66,56 75,86 50,68 25,86 34,56 10,38 39,38"/>', cx: 50, cy: 52, gx: 45, gy: 44 },
+    { shape: '<path d="M50 84 L18 52 A17 17 0 0 1 50 26 A17 17 0 0 1 82 52 Z"/>', cx: 50, cy: 55 },
+  ];
+
+  function gemSvg(type) {
+    const { shape, cx, cy, gx = cx - 13, gy = cy - 17 } = SHAPES[type];
+    return `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <g class="gem-body">${shape}</g>
+      <g clip-path="url(#clip-${type})">
+        <rect class="gem-shade" x="0" y="0" width="100" height="100" fill="url(#shade-grad)"/>
+        <ellipse class="gem-gloss" cx="${gx}" cy="${gy}" rx="15" ry="8" transform="rotate(-30 ${gx} ${gy})" fill="url(#gloss-grad)"/>
+      </g>
+    </svg>`;
+  }
+
+  // The bomb: round body, metal cap, striped fuse with a flickering spark, and a
+  // wicked face (angry brows, narrowed red-pupil eyes, toothy grin).
+  const BOMB_SVG = `<svg viewBox="0 0 100 100" role="img" aria-label="Bomb">
+    <path d="M66 30 C 72 20, 76 22, 80 14" fill="none" stroke="var(--bomb-fuse)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M66 30 C 72 20, 76 22, 80 14" fill="none" stroke="var(--bomb-fuse-band)" stroke-width="4" stroke-dasharray="2 4"/>
+    <rect x="56" y="24" width="16" height="12" rx="2.5" transform="rotate(38 64 30)" fill="var(--bomb-cap)" stroke="var(--bomb-rim)" stroke-width="2.5"/>
+    <circle class="bomb-body" cx="46" cy="58" r="31"/>
+    <g clip-path="url(#clip-bomb)">
+      <rect class="gem-shade" x="0" y="0" width="100" height="100" fill="url(#shade-grad)"/>
+      <ellipse class="gem-gloss" cx="30" cy="38" rx="11" ry="6" transform="rotate(-35 30 38)" fill="url(#gloss-grad)"/>
+    </g>
+    <path d="M24 44 L41 51 M68 44 L51 51" stroke="var(--bomb-face)" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M27 54 Q34 50 40 56 Q33 60 27 54Z M65 54 Q58 50 52 56 Q59 60 65 54Z" fill="var(--bomb-face)"/>
+    <circle cx="36" cy="55.5" r="2.2" fill="var(--bomb-eye)"/>
+    <circle cx="56" cy="55.5" r="2.2" fill="var(--bomb-eye)"/>
+    <path d="M24 64 Q46 72 68 64 Q62 84 46 84 Q30 84 24 64Z" fill="var(--bomb-mouth)"/>
+    <path d="M26 65.5 Q46 73 66 65.5 L64 70 Q46 76 28 70Z" fill="var(--bomb-face)"/>
+    <path d="M34 69 v3.5 M40 70.5 v4 M46 71 v4 M52 70.5 v4 M58 69 v3.5" stroke="var(--bomb-body)" stroke-width="1.2"/>
+    <polygon class="spark" points="83,1 85.5,9 94,7 88,13 94,19 85.5,17 83,25 80.5,17 72,19 78,13 72,7 80.5,9" fill="url(#fire-grad)"/>
+  </svg>`;
+
+  // A 5x4 slice of a board: every gem type plus four bombs ('B').
+  const LAYOUT = [0, 1, 'B', 2, 3, 4, 5, 6, 'B', 0, 1, 'B', 3, 4, 5, 2, 6, 0, 1, 'B'];
+  const board = () =>
+    LAYOUT.map((t) => (t === 'B' ? `<div class="cell">${BOMB_SVG}</div>` : `<div class="cell" data-type="${t}">${gemSvg(t)}</div>`)).join('');
+
+  for (const [id, name] of [['neon', 'Neon'], ['pastel', 'Pastel']]) {
+    const section = document.createElement('section');
+    section.dataset.theme = id;
+    section.innerHTML = `<h2>${name}</h2>
+      <div class="row">
+        <div><div class="label">Close-up</div><div class="cell big">${BOMB_SVG}</div></div>
+        <div class="scroll"><div class="label">Desktop board (91px cells)</div><div class="board" style="--cell: 91px">${board()}</div></div>
+        <div class="scroll"><div class="label">Phone board (58px cells)</div><div class="board" style="--cell: 58px">${board()}</div></div>
+      </div>`;
+    document.body.append(section);
+  }
+</script>
+</body>
+</html>
