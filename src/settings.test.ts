@@ -41,7 +41,7 @@ describe('time limit setting', () => {
   });
 
   it('keeps settings saved before time limits existed working', () => {
-    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3, language: 'en', gemStyle: 'shapes' });
+    expect(parseSettings('{"theme":"pastel"}')).toEqual({ theme: 'pastel', timeLimit: 3, language: 'en', gemStyle: 'shapes', diagonal: false });
   });
 
   it('parses theme and time limit independently', () => {
@@ -68,8 +68,8 @@ describe('language setting', () => {
   });
 
   it('keeps older saved settings working, and parses language independently', () => {
-    expect(parseSettings('{"theme":"pastel","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'pastel', timeLimit: 5, language: 'zh-CN', gemStyle: 'shapes' });
-    expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN', gemStyle: 'shapes' });
+    expect(parseSettings('{"theme":"pastel","timeLimit":5}', 'zh-CN')).toEqual({ theme: 'pastel', timeLimit: 5, language: 'zh-CN', gemStyle: 'shapes', diagonal: false });
+    expect(parseSettings('{"theme":"rainbow","language":"zh-CN"}')).toEqual({ theme: 'neon', timeLimit: 3, language: 'zh-CN', gemStyle: 'shapes', diagonal: false });
   });
 });
 

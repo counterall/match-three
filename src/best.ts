@@ -1,6 +1,7 @@
 // Best scores, kept separately for each round length (issue #22): a best set in a
 // 10-minute game says nothing about a 3-minute one. Pure apart from the storage
-// passed in, tested in best.test.ts.
+// passed in, tested in best.test.ts. Diagonal-match games (issue #30) keep their own
+// best for each limit too, under a ':diag' key; the normal keys are unchanged.
 
 import type { TimeLimit } from './settings';
 
@@ -10,9 +11,9 @@ import type { TimeLimit } from './settings';
  */
 export const LEGACY_BEST_KEY = 'neon-cascade:best';
 
-/** Storage key for the best score of rounds of `minutes` minutes. */
-export function bestKey(minutes: TimeLimit): string {
-  return `neon-cascade:best:${minutes}m`;
+/** Storage key for the best score of rounds of `minutes` minutes, with or without diagonal matches. */
+export function bestKey(minutes: TimeLimit, diagonal = false): string {
+  return `neon-cascade:best:${minutes}m${diagonal ? ':diag' : ''}`;
 }
 
 /** The parts of `Storage` used here. */
@@ -31,17 +32,17 @@ export function parseBest(raw: string | null): number {
  * `getStore` is a function because merely reading `window.localStorage` can throw
  * (e.g. storage blocked), and that must be caught too.
  */
-export function loadBest(getStore: () => BestStore, minutes: TimeLimit): number {
+export function loadBest(getStore: () => BestStore, minutes: TimeLimit, diagonal = false): number {
   try {
-    return parseBest(getStore().getItem(bestKey(minutes)));
+    return parseBest(getStore().getItem(bestKey(minutes, diagonal)));
   } catch {
     return 0;
   }
 }
 
-export function saveBest(getStore: () => BestStore, minutes: TimeLimit, value: number): void {
+export function saveBest(getStore: () => BestStore, minutes: TimeLimit, value: number, diagonal = false): void {
   try {
-    getStore().setItem(bestKey(minutes), String(value));
+    getStore().setItem(bestKey(minutes, diagonal), String(value));
   } catch {
     /* storage unavailable; the best score just won't persist */
   }

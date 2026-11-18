@@ -49,32 +49,42 @@ export function swap(grid: Grid, a: Pos, b: Pos): void {
   grid[b.row][b.col] = tmp;
 }
 
-/** Returns every horizontal and vertical run of 3+ same-type gems. */
-export function findRuns(grid: Grid): Pos[][] {
+/** Rule options for matching. `diagonal` (issue #30): lines along either diagonal match too. */
+export interface MatchOptions {
+  diagonal?: boolean;
+}
+
+/** Line directions that can make a run: [dRow, dCol]. */
+const STRAIGHT: readonly [number, number][] = [
+  [0, 1],
+  [1, 0],
+];
+const DIAGONALS: readonly [number, number][] = [
+  [1, 1],
+  [1, -1],
+];
+
+/**
+ * Returns every run of 3+ same-type gems: horizontal and vertical, plus both
+ * diagonals when `opts.diagonal` is on. Each run lists its cells in order along the line.
+ */
+export function findRuns(grid: Grid, opts: MatchOptions = {}): Pos[][] {
   const runs: Pos[][] = [];
-  const typeAt = (r: number, c: number) => grid[r][c]?.type ?? -1;
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
+  const typeAt = (r: number, c: number) =>
+    r >= 0 && r < rows && c >= 0 && c < cols ? (grid[r][c]?.type ?? -1) : -1;
 
-  for (let r = 0; r < rows; r++) {
-    let start = 0;
-    for (let c = 1; c <= cols; c++) {
-      if (c < cols && typeAt(r, c) === typeAt(r, start) && typeAt(r, c) !== -1) continue;
-      if (c - start >= 3 && typeAt(r, start) !== -1) {
-        runs.push(Array.from({ length: c - start }, (_, i) => ({ row: r, col: start + i })));
+  for (const [dr, dc] of opts.diagonal ? [...STRAIGHT, ...DIAGONALS] : STRAIGHT) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const type = typeAt(r, c);
+        // Start only at the first cell of a line of this type.
+        if (type === -1 || typeAt(r - dr, c - dc) === type) continue;
+        let len = 1;
+        while (typeAt(r + dr * len, c + dc * len) === type) len++;
+        if (len >= 3) runs.push(Array.from({ length: len }, (_, i) => ({ row: r + dr * i, col: c + dc * i })));
       }
-      start = c;
-    }
-  }
-
-  for (let c = 0; c < cols; c++) {
-    let start = 0;
-    for (let r = 1; r <= rows; r++) {
-      if (r < rows && typeAt(r, c) === typeAt(start, c) && typeAt(r, c) !== -1) continue;
-      if (r - start >= 3 && typeAt(start, c) !== -1) {
-        runs.push(Array.from({ length: r - start }, (_, i) => ({ row: start + i, col: c })));
-      }
-      start = r;
     }
   }
 
@@ -130,7 +140,7 @@ export function collapse(grid: Grid, rng: Rng, bombChance = 0): Spawn[] {
 }
 
 /** Finds a swap that would create a match, or null when the board is stuck. */
-export function findMove(grid: Grid): [Pos, Pos] | null {
+export function findMove(grid: Grid, opts: MatchOptions = {}): [Pos, Pos] | null {
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
   for (let r = 0; r < rows; r++) {
@@ -139,7 +149,7 @@ export function findMove(grid: Grid): [Pos, Pos] | null {
       for (const b of [{ row: r, col: c + 1 }, { row: r + 1, col: c }]) {
         if (b.row >= rows || b.col >= cols) continue;
         swap(grid, a, b);
-        const ok = findRuns(grid).length > 0;
+        const ok = findRuns(grid, opts).length > 0;
         swap(grid, a, b);
         if (ok) return [a, b];
       }
@@ -153,6 +163,7 @@ export function createBoard(
   rows = DEFAULT_ROWS,
   cols = DEFAULT_COLS,
   rng: Rng = Math.random,
+  opts: MatchOptions = {},
 ): Grid {
   for (;;) {
     const grid: Grid = [];
@@ -165,17 +176,21 @@ export function createBoard(
           type = Math.floor(rng() * GEM_TYPES);
         } while (
           (c >= 2 && row[c - 1]!.type === type && row[c - 2]!.type === type) ||
-          (r >= 2 && grid[r - 1][c]!.type === type && grid[r - 2][c]!.type === type)
+          (r >= 2 && grid[r - 1][c]!.type === type && grid[r - 2][c]!.type === type) ||
+          (!!opts.diagonal &&
+            r >= 2 &&
+            ((c >= 2 && grid[r - 1][c - 1]!.type === type && grid[r - 2][c - 2]!.type === type) ||
+              (c + 2 < cols && grid[r - 1][c + 1]!.type === type && grid[r - 2][c + 2]!.type === type)))
         );
         row.push(newGem(rng, type));
       }
     }
-    if (findMove(grid)) return grid;
+    if (findMove(grid, opts)) return grid;
   }
 }
 
 /** Rearranges the existing gems until there are no matches and at least one move. */
-export function shuffle(grid: Grid, rng: Rng = Math.random): void {
+export function shuffle(grid: Grid, rng: Rng = Math.random, opts: MatchOptions = {}): void {
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
   const gems = grid.flat().filter((g): g is Gem => g !== null);
@@ -185,10 +200,10 @@ export function shuffle(grid: Grid, rng: Rng = Math.random): void {
       [gems[i], gems[j]] = [gems[j], gems[i]];
     }
     for (let i = 0; i < gems.length; i++) grid[Math.floor(i / cols)][i % cols] = gems[i];
-    if (findRuns(grid).length === 0 && findMove(grid)) return;
+    if (findRuns(grid, opts).length === 0 && findMove(grid, opts)) return;
   }
   // Extremely unlikely with 7 types; fall back to a brand-new board.
-  const fresh = createBoard(rows, cols, rng);
+  const fresh = createBoard(rows, cols, rng, opts);
   for (let r = 0; r < rows; r++) grid[r] = fresh[r];
 }
 

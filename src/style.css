@@ -218,6 +218,36 @@ body {
   min-width: 72px; /* m:ss is narrower than a score */
 }
 
+/* The Best label holds the diagonal badge too; keep them on one line. */
+.stat .label {
+  white-space: nowrap;
+}
+
+/* Diagonal matches on (issue #30): a small mark before the Best label. */
+.diag-badge {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.3em;
+  vertical-align: -0.2em;
+  color: var(--accent);
+}
+
+.diag-badge[hidden] {
+  display: none;
+}
+
+.diag-badge svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Round timer: urgent in the last seconds, flashes when bonus time is added. */
 .stat.low {
   border-color: var(--accent-2);

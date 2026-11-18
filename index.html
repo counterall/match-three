@@ -50,7 +50,7 @@
         <h1 class="title">Neon<span>Cascade</span></h1>
         <div class="stats">
           <div class="stat"><span class="label" data-i18n="score">Score</span><span id="score" class="value">0</span></div>
-          <div class="stat"><span class="label" data-i18n="best">Best</span><span id="best" class="value">0</span></div>
+          <div class="stat"><span class="label"><span id="diag-badge" class="diag-badge" role="img" aria-label="Diagonal matches on" data-i18n-label="diagonalBadge" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 12.5l9-9M7.5 3.5h5v5M3.5 7.5v5h5"/></svg></span><span data-i18n="best">Best</span></span><span id="best" class="value">0</span></div>
           <div id="time-stat" class="stat"><span class="label" data-i18n="time">Time</span><span id="time" class="value" role="timer">3:00</span></div>
         </div>
       </header>
@@ -105,6 +105,12 @@
           <h3 id="time-limit-title" data-i18n="timeLimit">Time limit</h3>
           <div id="time-options" class="pill-group" role="radiogroup" aria-labelledby="time-limit-title"></div>
           <p class="settings-note" data-i18n="timeLimitNote">Applies from the next game, or straight away if you haven't moved yet. Every 1,000 points adds 20 seconds.</p>
+        </section>
+
+        <section class="settings-section">
+          <h3 id="diagonal-title" data-i18n="diagonal">Diagonal matches</h3>
+          <div id="diagonal-options" class="pill-group" role="radiogroup" aria-labelledby="diagonal-title"></div>
+          <p class="settings-note" data-i18n="diagonalNote">Lines of 3 along a diagonal match too. Applies from the next game, or straight away if you haven't moved yet. Diagonal games keep their own best.</p>
         </section>
 
         <section class="settings-section">

@@ -27,7 +27,14 @@ export interface SettingsHooks {
   /** The page has already been translated when this runs. */
   onLanguageChange?: (language: Language) => void;
   onGemStyleChange?: (style: GemStyleId) => void;
+  /** Diagonal matches turned on or off (issue #30). */
+  onDiagonalChange?: (on: boolean) => void;
 }
+
+const DIAGONAL_OPTIONS = [
+  { value: 'off', labelKey: 'diagonalOff' },
+  { value: 'on', labelKey: 'diagonalOn' },
+] as const;
 
 /** Wires up the settings dialog and returns the live settings object. */
 export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
@@ -41,6 +48,7 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
   const gemStyleGroup = dialog.querySelector<HTMLDivElement>('#gem-style-options')!;
   const timeGroup = dialog.querySelector<HTMLDivElement>('#time-options')!;
   const languageGroup = dialog.querySelector<HTMLDivElement>('#language-options')!;
+  const diagonalGroup = dialog.querySelector<HTMLDivElement>('#diagonal-options')!;
 
   themeGrid.innerHTML = THEMES.map(
     (th) => `
@@ -66,6 +74,14 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
       <label class="pill-option">
         <input type="radio" name="time-limit" value="${minutes}" ${minutes === settings.timeLimit ? 'checked' : ''} />
         <span data-i18n="minutes" data-i18n-n="${minutes}">${t(lang, 'minutes', { n: minutes })}</span>
+      </label>`,
+  ).join('');
+
+  diagonalGroup.innerHTML = DIAGONAL_OPTIONS.map(
+    (o) => `
+      <label class="pill-option">
+        <input type="radio" name="diagonal" value="${o.value}" ${(o.value === 'on') === settings.diagonal ? 'checked' : ''} />
+        <span data-i18n="${o.labelKey}">${t(lang, o.labelKey)}</span>
       </label>`,
   ).join('');
 
@@ -106,6 +122,14 @@ export function initSettings(hooks: SettingsHooks = {}): Readonly<Settings> {
     settings.timeLimit = value;
     saveSettings(settings);
     hooks.onTimeLimitChange?.(value);
+  });
+
+  diagonalGroup.addEventListener('change', (e) => {
+    const value = (e.target as HTMLInputElement).value;
+    if (value !== 'on' && value !== 'off') return;
+    settings.diagonal = value === 'on';
+    saveSettings(settings);
+    hooks.onDiagonalChange?.(settings.diagonal);
   });
 
   languageGroup.addEventListener('change', (e) => {

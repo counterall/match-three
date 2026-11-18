@@ -17,6 +17,7 @@ import {
   swap,
   type Gem,
   type Grid,
+  type MatchOptions,
   type Pos,
   type Spawn,
 } from './board';
@@ -58,6 +59,7 @@ root.style.setProperty('--blast-ms', `${BLAST_MS}ms`);
 const boardEl = document.querySelector<HTMLDivElement>('#board')!;
 const scoreEl = document.querySelector<HTMLSpanElement>('#score')!;
 const bestEl = document.querySelector<HTMLSpanElement>('#best')!;
+const diagBadge = document.querySelector<HTMLSpanElement>('#diag-badge')!;
 const toastEl = document.querySelector<HTMLDivElement>('#toast')!;
 const hintBtn = document.querySelector<HTMLButtonElement>('#hint')!;
 const newGameBtn = document.querySelector<HTMLButtonElement>('#new-game')!;
@@ -75,7 +77,8 @@ const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
 let grid: Grid = [];
 let score = 0;
 let roundLimit: TimeLimit = DEFAULT_SETTINGS.timeLimit; // this round's length; set by setRoundLimit()
-let best = 0; // best score for rounds of roundLimit minutes (issue #22)
+let roundDiagonal = DEFAULT_SETTINGS.diagonal; // this round's mode (issue #30); set by setRoundLimit()
+let best = 0; // best score for rounds of roundLimit minutes in this mode (issues #22, #30)
 let busy = false;
 let selected: Pos | null = null;
 let hintTimer = 0;
@@ -90,10 +93,18 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 
 const storage = () => window.localStorage;
 
-/** Sets the round length whose best score the HUD shows and this round can beat. */
-function setRoundLimit(minutes: TimeLimit): void {
+/** The match rules of this round: diagonal matches on or off (issue #30). */
+const matchOpts = (): MatchOptions => ({ diagonal: roundDiagonal });
+
+/**
+ * Sets the round length and mode whose best score the HUD shows and this round can
+ * beat; the diagonal badge next to Best shows the mode.
+ */
+function setRoundLimit(minutes: TimeLimit, diagonal = roundDiagonal): void {
   roundLimit = minutes;
-  best = loadBest(storage, minutes);
+  roundDiagonal = diagonal;
+  diagBadge.hidden = !diagonal;
+  best = loadBest(storage, minutes, diagonal);
   bestAtStart = best;
   setScore(score);
 }
@@ -163,7 +174,7 @@ function setScore(value: number): void {
   scoreEl.textContent = score.toLocaleString(settings.language);
   if (score > best) {
     best = score;
-    saveBest(storage, roundLimit, best);
+    saveBest(storage, roundLimit, best, roundDiagonal);
   }
   bestEl.textContent = best.toLocaleString(settings.language);
 }
@@ -217,7 +228,7 @@ function clearHint(): void {
 function showHint(): void {
   if (busy || timeUp || paused) return;
   clearHint();
-  const move = findMove(grid);
+  const move = findMove(grid, matchOpts());
   if (!move) return;
   for (const p of move) elAt(p)?.classList.add('hint');
 }
@@ -244,7 +255,7 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
   await wait(SWAP_MS);
   if (token !== gameToken) return;
 
-  if (findRuns(grid).length === 0) {
+  if (findRuns(grid, matchOpts()).length === 0) {
     // Not a match: bounce back.
     swap(grid, a, b);
     render();
@@ -273,7 +284,7 @@ function finishMove(): void {
 /** `swapped`: the two cells of the player's swap, so a 5-run's bomb lands on the moved gem. */
 async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
   let cascade = 1;
-  for (let runs = findRuns(grid); runs.length > 0; runs = findRuns(grid)) {
+  for (let runs = findRuns(grid, matchOpts()); runs.length > 0; runs = findRuns(grid, matchOpts())) {
     // Bombs (issue #28): 5+ runs leave one behind; cleared bombs blast their 3x3.
     const plan = planClear(grid, runs, cascade === 1 ? swapped : []);
     const cells = plan.cleared;
@@ -320,11 +331,11 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
     cascade++;
   }
 
-  if (!findMove(grid)) {
+  if (!findMove(grid, matchOpts())) {
     toast(t(settings.language, 'noMoves'), 1400);
     await wait(700);
     if (token !== gameToken) return;
-    shuffle(grid);
+    shuffle(grid, Math.random, matchOpts());
     boardEl.classList.add('shuffling');
     render();
     await wait(SWAP_MS * 2);
@@ -380,12 +391,14 @@ function newGame(): void {
   setPaused(false);
   // Seven of the eight animals, in a random order, for every new game (issue #20).
   animalCast = drawCast(Math.random);
+  // Score first: setRoundLimit() shows it, and could save the old one as a best.
+  // The mode is fixed for the round before the board is made (issue #30).
+  score = 0;
+  setRoundLimit(settings.timeLimit, settings.diagonal);
   const { rows, cols } = currentLayout();
-  grid = createBoard(rows, cols);
+  grid = createBoard(rows, cols, Math.random, matchOpts());
   document.body.style.setProperty('--rows', String(rows));
   document.body.style.setProperty('--cols', String(cols));
-  score = 0;
-  setRoundLimit(settings.timeLimit);
   rebuildBoard();
   resetIdle();
   updateClock();
@@ -528,6 +541,10 @@ const settings = initSettings({
       setRoundLimit(minutes);
       updateClock();
     }
+  },
+  // Diagonal matches: the next game, or a fresh board right away if this one hasn't started.
+  onDiagonalChange() {
+    if (!clock.isStarted && !timeUp && !busy) newGame();
   },
   // Redraw every gem on the board in the new style; positions and state are unchanged.
   onGemStyleChange(style) {
