@@ -11,7 +11,7 @@ const tokenBlock = (theme: string): string =>
   css.match(new RegExp(`\\[data-theme='${theme}'\\]\\s*\\{([^}]*)\\}`))?.[1] ?? '';
 const BOMB_TOKENS = [
   '--bomb-body', '--bomb-rim', '--bomb-cap', '--bomb-fuse', '--bomb-fuse-band',
-  '--bomb-face', '--bomb-eye', '--bomb-mouth', '--bomb-tint', '--blast-core', '--blast-edge',
+  '--bomb-face', '--bomb-eye', '--bomb-mouth', '--blast-core', '--blast-edge',
 ];
 
 describe('bomb artwork', () => {
@@ -19,7 +19,7 @@ describe('bomb artwork', () => {
     it(`(${style}) defines no ids and uses only shared defs`, () => {
       const defs = gemDefsSvg();
       for (const t of types) {
-        const svg = gemSvg(t, style, undefined, true);
+        const svg = gemSvg(t, style, undefined, { special: 'bomb' });
         expect(svg).toContain('bomb-spark');
         expect(svg).not.toMatch(/\sid=/);
         for (const [, id] of svg.matchAll(/url\(#([\w-]+)\)/g)) expect(defs).toContain(`id="${id}"`);
@@ -27,17 +27,9 @@ describe('bomb artwork', () => {
     });
   }
 
-  it('shows the colour a shapes bomb matches (tint + coloured rim)', () => {
-    const svg = gemSvg(2, 'shapes', undefined, true);
-    expect(svg).toContain('class="bomb-tint"');
-    expect(svg).toContain('class="bomb-ring"');
-    expect(css).toMatch(/\.bomb-tint\s*\{[^}]*fill:\s*var\(--fc\)/);
-    expect(css).toMatch(/\.bomb-ring\s*\{[^}]*stroke:\s*var\(--c\)/);
-  });
-
   it('keeps the animal face and adds a bomb badge in Animals style', () => {
     const plain = gemSvg(4, 'animals');
-    const bomb = gemSvg(4, 'animals', undefined, true);
+    const bomb = gemSvg(4, 'animals', undefined, { special: 'bomb' });
     expect(bomb.startsWith(plain.replace(/<\/svg>$/, ''))).toBe(true);
     expect(bomb).toContain('class="bomb-badge"');
     // One <svg> only, so the `.gem svg` rules don't scale the badge twice.
@@ -55,7 +47,7 @@ describe('bomb artwork', () => {
   it('respects reduced motion: no spark flicker or pop-in, blast is a plain flash', () => {
     const reduced = [...css.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g)].map((m) => m[1]).join('\n');
     expect(reduced).toMatch(/\.bomb-spark/);
-    expect(reduced).toMatch(/\.gem\.bomb-made svg/);
+    expect(reduced).toMatch(/\.gem\.special-made svg/);
     expect(reduced).toMatch(/\.blast\s*\{\s*animation-name:\s*blast-flash/);
     expect(css).toMatch(/@keyframes blast-flash\s*\{[^@]*opacity/);
     expect(css.match(/@keyframes blast-flash\s*\{([\s\S]*?)\n\}/)?.[1]).not.toContain('transform');

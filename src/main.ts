@@ -1,7 +1,8 @@
 import './style.css';
 import {
   BOMB_SPAWN_CHANCE,
-  applyBombs,
+  applySpecials,
+  beamReach,
   blastScore,
   clearCells,
   collapse,
@@ -17,12 +18,14 @@ import {
   swap,
   type Gem,
   type Grid,
+  type LineDir,
   type MatchOptions,
   type Pos,
+  type Special,
   type Spawn,
 } from './board';
 import { DEFAULT_CAST, drawCast, type AnimalCast } from './animals';
-import { gemSvg, installGemDefs } from './gems';
+import { LINE_BADGE_ANGLE, gemSvg, installGemDefs, type GemMark } from './gems';
 import { t } from './i18n';
 import { initSettings } from './settings-ui';
 import { installStandaloneZoomGuards } from './tap-guard';
@@ -118,18 +121,28 @@ function createGemEl(gem: Gem, row: number, col: number): HTMLDivElement {
   el.className = 'gem';
   el.dataset.id = String(gem.id);
   el.dataset.type = String(gem.type);
-  drawGem(el, gem.special === 'bomb');
+  drawGem(el, gem);
   place(el, row, col);
   boardEl.append(el);
   els.set(gem.id, el);
   return el;
 }
 
-/** (Re)draws a gem element's artwork in the current style; bombs are flagged on the element. */
-function drawGem(el: HTMLDivElement, bomb = el.dataset.special === 'bomb', style = settings.gemStyle): void {
-  if (bomb) el.dataset.special = 'bomb';
+/** A gem element's special kind and direction, as flagged on the element. */
+function markOf(el: HTMLDivElement): GemMark {
+  return { special: el.dataset.special as Special | undefined, dir: el.dataset.dir as LineDir | undefined };
+}
+
+/**
+ * (Re)draws a gem element's artwork in the current style. Specials are flagged on
+ * the element (`data-special`, plus `data-dir` for line gems, issue #32).
+ */
+function drawGem(el: HTMLDivElement, mark: GemMark = markOf(el), style = settings.gemStyle): void {
+  if (mark.special) el.dataset.special = mark.special;
   else delete el.dataset.special;
-  el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast, bomb);
+  if (mark.special === 'line' && mark.dir) el.dataset.dir = mark.dir;
+  else delete el.dataset.dir;
+  el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast, mark);
 }
 
 function place(el: HTMLDivElement, row: number, col: number): void {
@@ -159,7 +172,7 @@ function addSpawns(spawns: Spawn[]): void {
 }
 
 function rebuildBoard(): void {
-  boardEl.querySelectorAll('.gem, .blast').forEach((el) => el.remove());
+  boardEl.querySelectorAll('.gem, .blast, .beam').forEach((el) => el.remove());
   els.clear();
   render();
 }
@@ -197,6 +210,24 @@ function showBlast(p: Pos): void {
   el.style.top = `${((p.row - 1) / rowsOf(grid)) * 100}%`;
   el.style.width = `${(3 / colsOf(grid)) * 100}%`;
   el.style.height = `${(3 / rowsOf(grid)) * 100}%`;
+  boardEl.append(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+/**
+ * The beam of a line gem going off (issue #32): a strip along its line, centred on
+ * the gem, sweeping out both ways (clipped by the board's overflow). Its data-type
+ * colours the glow.
+ */
+function showBeam(p: Pos): void {
+  const gem = grid[p.row][p.col];
+  if (!gem) return;
+  const el = document.createElement('div');
+  el.className = 'beam';
+  el.dataset.type = String(gem.type);
+  el.style.left = `${((p.col + 0.5) / colsOf(grid)) * 100}%`;
+  el.style.top = `${((p.row + 0.5) / rowsOf(grid)) * 100}%`;
+  el.style.setProperty('--beam-angle', `${LINE_BADGE_ANGLE[gem.dir ?? 'row']}deg`);
   boardEl.append(el);
   el.addEventListener('animationend', () => el.remove());
 }
@@ -281,29 +312,45 @@ function finishMove(): void {
   else if (!paused) resetIdle();
 }
 
-/** `swapped`: the two cells of the player's swap, so a 5-run's bomb lands on the moved gem. */
+/** `swapped`: the two cells of the player's swap, so a run's new special lands on the moved gem. */
 async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
   let cascade = 1;
   for (let runs = findRuns(grid, matchOpts()); runs.length > 0; runs = findRuns(grid, matchOpts())) {
-    // Bombs (issue #28): 5+ runs leave one behind; cleared bombs blast their 3x3.
+    // Specials: 5+ runs leave a bomb (issue #28), 4-runs a line gem (issue #32);
+    // cleared bombs blast their 3x3, cleared line gems their whole line.
     const plan = planClear(grid, runs, cascade === 1 ? swapped : []);
     const cells = plan.cleared;
     const points = scoreFor(runs, cascade) + blastScore(plan, cascade);
     const type = grid[runs[0][0].row][runs[0][0].col]!.type;
 
-    applyBombs(grid, plan.made);
-    for (const p of plan.made) {
+    // Beams first: they read the line gems' directions before the grid changes.
+    plan.fired.forEach(showBeam);
+    plan.detonated.forEach(showBlast);
+    applySpecials(grid, plan.made);
+    for (const m of plan.made) {
+      const el = elAt(m);
+      if (!el) continue;
+      drawGem(el, m);
+      el.classList.add('special-made');
+      // A timer, not animationend: reduced motion turns the animation off.
+      setTimeout(() => el.classList.remove('special-made'), POP_MS);
+    }
+
+    // Beamed gems pop as the beam's front reaches them (issue #32): the strip
+    // (1.5 board widths each way) grows over 75% of POP_MS.
+    const reach = reducedMotion ? new Map<string, number>() : beamReach(grid, plan.fired);
+    const msPerCell = (POP_MS * 0.75) / (1.5 * colsOf(grid));
+    let lastPop = 0;
+    const popping: HTMLDivElement[] = [];
+    for (const p of cells) {
       const el = elAt(p);
       if (!el) continue;
-      drawGem(el, true);
-      el.classList.add('bomb-made');
-      // A timer, not animationend: reduced motion turns the animation off.
-      setTimeout(() => el.classList.remove('bomb-made'), POP_MS);
+      const delay = Math.round((reach.get(`${p.row},${p.col}`) ?? 0) * msPerCell);
+      el.style.setProperty('--pop-delay', `${delay}ms`);
+      lastPop = Math.max(lastPop, delay);
+      el.classList.add('pop');
+      popping.push(el);
     }
-    plan.detonated.forEach(showBlast);
-
-    const popping = cells.map((p) => elAt(p)).filter((el): el is HTMLDivElement => !!el);
-    popping.forEach((el) => el.classList.add('pop'));
     floatPoints(runs.flat(), points, type);
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
@@ -315,7 +362,10 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<void> {
     }
     if (messages.length > 0) toast(messages.join(' · '));
 
-    await wait(plan.detonated.length > 0 ? Math.max(POP_MS, BLAST_MS) : POP_MS);
+    // A blast (and, under reduced motion, a beam's flash) runs BLAST_MS; a beam's
+    // sweep takes one pop, and its farthest gem pops lastPop ms in.
+    const flashing = plan.detonated.length > 0 || (reducedMotion && plan.fired.length > 0);
+    await wait(Math.max(POP_MS + lastPop, flashing ? BLAST_MS : 0));
     if (token !== gameToken) return;
 
     for (const el of popping) {

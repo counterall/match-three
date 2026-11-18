@@ -37,7 +37,7 @@
   --gem-5: #b44dff;
   --gem-6: #ff3b5c;
 
-  /* Bomb gems (issue #28): body, metal parts, face, colour tint, blast */
+  /* Special gems (issues #28, #32): bomb badge (body, metal parts, face), blast, line badge, beam */
   --bomb-body: #2a2346;
   --bomb-rim: #8f7dff;
   --bomb-cap: #9aa0b8;
@@ -46,9 +46,11 @@
   --bomb-face: #ffffff;
   --bomb-eye: #ff3b30;
   --bomb-mouth: #ff2bd6;
-  --bomb-tint: 0.45;
   --blast-core: rgba(255, 255, 255, 0.95);
   --blast-edge: rgba(255, 140, 26, 0.55);
+  --line-badge-bg: #0a061e;
+  --line-badge-fg: #ffffff;
+  --beam-core: rgba(255, 255, 255, 0.95);
 }
 
 [data-theme='pastel'] {
@@ -90,9 +92,11 @@
   --bomb-face: #ffffff;
   --bomb-eye: #e5484d;
   --bomb-mouth: #e46aa8;
-  --bomb-tint: 0.55;
   --blast-core: rgba(255, 255, 255, 0.95);
   --blast-edge: rgba(245, 169, 127, 0.6);
+  --line-badge-bg: #ffffff;
+  --line-badge-fg: #4a3f6b;
+  --beam-core: rgba(255, 255, 255, 0.95);
 }
 
 /* Gem colour (--c) and body fill colour (--fc; optional per-theme --gem-N-body,
@@ -366,7 +370,8 @@ body {
 }
 
 .gem.pop svg {
-  animation: pop var(--pop-ms) ease-out forwards;
+  /* --pop-delay: a gem a beam clears waits for the beam's front (set by main.ts). */
+  animation: pop var(--pop-ms) ease-out var(--pop-delay, 0ms) forwards;
 }
 
 .board.shuffling .gem {
@@ -423,21 +428,10 @@ body {
   }
 }
 
-/* ---- Bombs (issue #28) ---- */
+/* ---- Special gems: bombs (issue #28) and line gems (issue #32) ----
+   Both keep the gem (so its colour shows) and wear a badge in the corner. */
 .bomb-body {
   fill: var(--bomb-body);
-}
-
-.bomb-tint {
-  fill: var(--fc);
-  opacity: var(--bomb-tint);
-}
-
-/* On the board the rim is the gem colour, so you can see what a bomb matches. */
-.bomb-ring {
-  fill: none;
-  stroke: var(--c);
-  stroke-width: 5;
 }
 
 .bomb-rim {
@@ -452,9 +446,51 @@ body {
   animation: flicker 0.35s ease-in-out infinite alternate;
 }
 
-/* A fresh bomb pops in where its run was. */
-.gem.bomb-made svg {
-  animation: bomb-made var(--pop-ms) ease-out;
+/* The line badge: a disc with a double arrow pointing the way the gem fires. */
+.line-badge-disc {
+  fill: var(--line-badge-bg);
+  stroke: var(--line-badge-fg);
+  stroke-width: 2.5;
+}
+
+.line-badge-arrow {
+  fill: none;
+  stroke: var(--line-badge-fg);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.line-badge-head {
+  fill: var(--line-badge-fg);
+}
+
+/* A fresh special pops in where its run was. */
+.gem.special-made svg {
+  animation: special-made var(--pop-ms) ease-out;
+}
+
+/* The beam of a line gem going off: a strip one cell thick, centred on the gem and
+   turned to its line (main.ts sets left/top and --beam-angle), sweeping out both
+   ways over one pop (gems pop as its front passes, via --pop-delay). Wide enough to reach every edge; the board's overflow clips it. Its
+   data-type gives --c, the gem colour, for the glow. */
+.beam {
+  position: absolute;
+  pointer-events: none;
+  width: 300%;
+  height: calc(100% / var(--rows));
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--c) 22%,
+    var(--beam-core) 40%,
+    var(--beam-core) 60%,
+    var(--c) 78%,
+    transparent 100%
+  );
+  box-shadow: 0 0 calc(14px * var(--glow)) var(--c);
+  transform: translate(-50%, -50%) rotate(var(--beam-angle, 0deg));
+  animation: beam var(--pop-ms) ease-out forwards;
 }
 
 /* The blast: a flash over the 3x3 square around a bomb (placed by main.ts). */
@@ -475,7 +511,31 @@ body {
   }
 }
 
-@keyframes bomb-made {
+@keyframes beam {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--beam-angle, 0deg)) scaleX(0);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--beam-angle, 0deg)) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--beam-angle, 0deg)) scaleX(1);
+  }
+}
+
+@keyframes beam-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes special-made {
   from {
     transform: scale(1.4);
   }
@@ -994,7 +1054,7 @@ button:disabled {
     filter: drop-shadow(0 0 4px var(--highlight)) drop-shadow(0 0 12px var(--c));
   }
   .bomb-spark,
-  .gem.bomb-made svg,
+  .gem.special-made svg,
   .settings[open],
   .overlay,
   .stat.bonus,
@@ -1003,9 +1063,13 @@ button:disabled {
   }
 }
 
-/* Reduced motion: the blast is a plain flash, with no scaling. */
+/* Reduced motion: the blast and the beam are plain flashes, with no scaling or sweep. */
 @media (prefers-reduced-motion: reduce) {
   .blast {
     animation-name: blast-flash;
+  }
+  .beam {
+    animation-name: beam-flash;
+    animation-duration: var(--blast-ms);
   }
 }
