@@ -147,7 +147,27 @@ export function collapse(grid: Grid, rng: Rng, bombChance = 0): Spawn[] {
   return spawns;
 }
 
-/** Finds a swap that would create a match, or null when the board is stuck. */
+/** True when the gem at (row, col) sits in a run of 3+ of its own type, in any enabled direction. */
+function inRun(grid: Grid, row: number, col: number, opts: MatchOptions): boolean {
+  const rows = rowsOf(grid);
+  const cols = colsOf(grid);
+  const type = grid[row][col]?.type;
+  if (type === undefined) return false;
+  const same = (r: number, c: number) => r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c]?.type === type;
+  for (const [dr, dc] of opts.diagonal ? [...STRAIGHT, ...DIAGONALS] : STRAIGHT) {
+    let len = 1;
+    for (let k = 1; same(row + dr * k, col + dc * k); k++) len++;
+    for (let k = 1; same(row - dr * k, col - dc * k); k++) len++;
+    if (len >= 3) return true;
+  }
+  return false;
+}
+
+/**
+ * Finds a swap that would create a match, or null when the board is stuck. Meant for a
+ * settled board (no runs yet): a swap only changes the two cells, so only runs through
+ * them need checking, not the whole board.
+ */
 export function findMove(grid: Grid, opts: MatchOptions = {}): [Pos, Pos] | null {
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
@@ -157,7 +177,7 @@ export function findMove(grid: Grid, opts: MatchOptions = {}): [Pos, Pos] | null
       for (const b of [{ row: r, col: c + 1 }, { row: r + 1, col: c }]) {
         if (b.row >= rows || b.col >= cols) continue;
         swap(grid, a, b);
-        const ok = findRuns(grid, opts).length > 0;
+        const ok = inRun(grid, a.row, a.col, opts) || inRun(grid, b.row, b.col, opts);
         swap(grid, a, b);
         if (ok) return [a, b];
       }
@@ -197,22 +217,28 @@ export function createBoard(
   }
 }
 
-/** Rearranges the existing gems until there are no matches and at least one move. */
-export function shuffle(grid: Grid, rng: Rng = Math.random, opts: MatchOptions = {}): void {
+/**
+ * Rearranges the existing gems until there are no matches and at least one move.
+ * Returns true when it kept the same gems (same ids, so their elements stay valid), or
+ * false when it gave up and put a brand-new board in the grid: the caller must then
+ * rebuild its elements. `maxAttempts` is a parameter so tests can reach the fallback.
+ */
+export function shuffle(grid: Grid, rng: Rng = Math.random, opts: MatchOptions = {}, maxAttempts = 1000): boolean {
   const rows = rowsOf(grid);
   const cols = colsOf(grid);
   const gems = grid.flat().filter((g): g is Gem => g !== null);
-  for (let attempt = 0; attempt < 1000; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     for (let i = gems.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [gems[i], gems[j]] = [gems[j], gems[i]];
     }
     for (let i = 0; i < gems.length; i++) grid[Math.floor(i / cols)][i % cols] = gems[i];
-    if (findRuns(grid, opts).length === 0 && findMove(grid, opts)) return;
+    if (findRuns(grid, opts).length === 0 && findMove(grid, opts)) return true;
   }
   // Extremely unlikely with 7 types; fall back to a brand-new board.
   const fresh = createBoard(rows, cols, rng, opts);
   for (let r = 0; r < rows; r++) grid[r] = fresh[r];
+  return false;
 }
 
 // ---- Special gems: bombs (issue #28) and line gems (issue #32) ----

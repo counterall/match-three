@@ -76,8 +76,8 @@ describe('main.ts wiring', () => {
   it('pops beamed gems as the beam passes and waits for the last one (or the flash)', () => {
     expect(mainSrc).toMatch(/beamReach\(grid, plan\.fired\)/);
     expect(mainSrc).toContain("setProperty('--pop-delay'");
-    expect(mainSrc).toMatch(/await wait\(Math\.max\(POP_MS \+ lastPop, flashing \? BLAST_MS : 0\)\)/);
-    expect(mainSrc).toMatch(/const flashing = plan\.detonated\.length > 0 \|\| \(reducedMotion && plan\.fired\.length > 0\)/);
+    expect(mainSrc).toMatch(/await wait\(stepWaitMs\(motion\.popMs, lastPop, flashing, motion\.blastMs\)\)/);
+    expect(mainSrc).toMatch(/const flashing = plan\.detonated\.length > 0 \|\| \(motion\.reduced && plan\.fired\.length > 0\)/);
     expect(css).toMatch(/\.gem\.pop svg\s*\{[^}]*var\(--pop-delay, 0ms\)/);
   });
 });

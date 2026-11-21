@@ -148,3 +148,89 @@ describe('scoreFor', () => {
     expect(scoreFor(run5, 1)).toBe(50 + 40);
   });
 });
+
+describe('shuffle fallback (issue #38)', () => {
+  it('reports false and installs a brand-new board when it cannot rearrange', () => {
+    const grid = createBoard(6, 6, seeded(3));
+    const oldIds = new Set(grid.flat().map((g) => g!.id));
+    // No attempts allowed: forces the fallback.
+    expect(shuffle(grid, seeded(4), {}, 0)).toBe(false);
+    expect(grid.flat().every((g) => g && !oldIds.has(g.id))).toBe(true);
+    expect(findRuns(grid)).toEqual([]);
+    expect(findMove(grid)).not.toBeNull();
+  });
+
+  it('reports true and keeps the very same gems when it can rearrange', () => {
+    const grid = gridFrom(STUCK);
+    const ids = grid.flat().map((g) => g!.id).sort();
+    expect(shuffle(grid, seeded(5))).toBe(true);
+    expect(grid.flat().map((g) => g!.id).sort()).toEqual(ids);
+  });
+});
+
+describe('collapse with several empty cells per column (issue #38)', () => {
+  it('drops survivors in order and refills every gap from above', () => {
+    const grid = gridFrom(['0123', '4567', '1234', '5670']);
+    const survivors = [grid[3][0]!, grid[0][0]!]; // column 0 keeps rows 0 and 3
+    grid[1][0] = grid[2][0] = null;
+    const spawns = collapse(grid, seeded(1));
+    expect(grid[3][0]).toBe(survivors[0]);
+    expect(grid[2][0]).toBe(survivors[1]);
+    const col0 = spawns.filter((s) => s.pos.col === 0);
+    expect(col0.map((s) => s.pos.row).sort((a, b) => a - b)).toEqual([0, 1]);
+    expect(col0.every((s) => s.fromRow === s.pos.row - 2)).toBe(true);
+    expect(grid.flat().every((g) => g !== null)).toBe(true);
+  });
+
+  it('refills a fully emptied column', () => {
+    const grid = gridFrom(['00', '11', '22']);
+    for (const row of grid) row[1] = null;
+    const spawns = collapse(grid, seeded(2));
+    expect(spawns).toHaveLength(3);
+    expect(spawns.map((s) => s.fromRow).sort((a, b) => a - b)).toEqual([-3, -2, -1]);
+  });
+});
+
+describe('findMove equals the full-board check (issue #38)', () => {
+  function oldFindMove(grid: Grid, opts: { diagonal?: boolean }) {
+    const rows = grid.length;
+    const cols = grid[0].length;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = { row: r, col: c };
+        for (const b of [{ row: r, col: c + 1 }, { row: r + 1, col: c }]) {
+          if (b.row >= rows || b.col >= cols) continue;
+          const t = grid[a.row][a.col];
+          grid[a.row][a.col] = grid[b.row][b.col];
+          grid[b.row][b.col] = t;
+          const ok = findRuns(grid, opts).length > 0;
+          const u = grid[a.row][a.col];
+          grid[a.row][a.col] = grid[b.row][b.col];
+          grid[b.row][b.col] = u;
+          if (ok) return [a, b];
+        }
+      }
+    }
+    return null;
+  }
+
+  it('returns the identical move on random run-free boards, with and without diagonals', () => {
+    const rng = seeded(99);
+    let compared = 0;
+    for (let i = 0; i < 400; i++) {
+      const rows = 3 + Math.floor(rng() * 6);
+      const cols = 3 + Math.floor(rng() * 6);
+      const types = 2 + Math.floor(rng() * 5);
+      let id = 1;
+      const grid: Grid = Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => ({ id: id++, type: Math.floor(rng() * types) })),
+      );
+      for (const diagonal of [false, true]) {
+        if (findRuns(grid, { diagonal }).length > 0) continue; // findMove is for settled boards
+        compared++;
+        expect(findMove(grid, { diagonal })).toEqual(oldFindMove(grid, { diagonal }));
+      }
+    }
+    expect(compared).toBeGreaterThan(100);
+  });
+});
