@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import css from './style.css?raw';
 import mainSrc from './main.ts?raw';
+import motionSrc from './motion.ts?raw';
 import { GEM_TYPES } from './board';
 import { gemDefsSvg, gemSvg } from './gems';
 import { THEMES } from './settings';
@@ -70,7 +71,8 @@ describe('main.ts wiring', () => {
   });
 
   it('keeps the blast duration in sync with CSS', () => {
-    expect(mainSrc).toContain("setProperty('--blast-ms'");
+    expect(motionSrc).toContain("'--blast-ms'");
+    expect(mainSrc).toContain('timingProperties(motion)');
     expect(css).toMatch(/\.blast\s*\{[^}]*var\(--blast-ms\)/);
   });
 });

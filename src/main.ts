@@ -9,7 +9,6 @@ import {
   createBoard,
   findMove,
   findRuns,
-  isAdjacent,
   colsOf,
   planClear,
   rowsOf,
@@ -26,6 +25,10 @@ import {
   type Spawn,
 } from './board';
 import { DEFAULT_CAST, drawCast, type AnimalCast } from './animals';
+import { gemLabel, gemName } from './a11y';
+import { msPerCell, popDelays, stepWaitMs } from './cascade';
+import { beginDrag, inputBlocked, isActivateKey, moveFocus, ownsDrag, pickAction, swipeTarget, type Drag } from './input';
+import { timingProperties, timingsFor, type Timings } from './motion';
 import { LINE_BADGE_ANGLE, gemSvg, installGemDefs, type GemMark } from './gems';
 import { t, type MessageKey } from './i18n';
 import { initSettings } from './settings-ui';
@@ -52,12 +55,9 @@ import {
 } from './daily';
 
 // ---- Timing (kept in sync with CSS through custom properties) ----
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const SWAP_MS = reducedMotion ? 60 : 200;
-const POP_MS = reducedMotion ? 60 : 280;
-const FALL_BASE_MS = reducedMotion ? 60 : 160;
-const FALL_PER_ROW_MS = reducedMotion ? 0 : 45;
-const BLAST_MS = reducedMotion ? 220 : 340; // reduced motion: a plain flash, still long enough to see
+// Read again whenever the reduced-motion preference changes (issue #38).
+const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motion: Timings = timingsFor(reducedQuery.matches);
 const HINT_DELAY_MS = 6000;
 const TICK_MS = 200; // how often the HUD clock refreshes
 const LOW_TIME_MS = 10_000; // the clock turns urgent below this
@@ -71,9 +71,14 @@ const LAYOUTS = {
 const currentLayout = () => (compactQuery.matches ? LAYOUTS.compact : LAYOUTS.wide);
 
 const root = document.documentElement;
-root.style.setProperty('--swap-ms', `${SWAP_MS}ms`);
-root.style.setProperty('--pop-ms', `${POP_MS}ms`);
-root.style.setProperty('--blast-ms', `${BLAST_MS}ms`);
+function applyMotion(): void {
+  for (const [name, value] of Object.entries(timingProperties(motion))) root.style.setProperty(name, value);
+}
+applyMotion();
+reducedQuery.addEventListener('change', () => {
+  motion = timingsFor(reducedQuery.matches);
+  applyMotion();
+});
 
 // ---- DOM ----
 const boardEl = document.querySelector<HTMLDivElement>('#board')!;
@@ -99,6 +104,7 @@ const streakEl = document.querySelector<HTMLParagraphElement>('#streak')!;
 const streakText = document.querySelector<HTMLSpanElement>('#streak-text')!;
 const pausedEl = document.querySelector<HTMLDivElement>('#paused')!;
 const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
+const scoreLiveEl = document.querySelector<HTMLDivElement>('#score-live')!;
 
 // ---- State ----
 /** Free play follows the Settings; a daily (issue #36) is today's seeded 3-minute round. */
@@ -122,10 +128,65 @@ let timeUp = false; // the clock ran out: no more input
 let paused = false; // the player paused (or the page was hidden): no input, clock held
 let bestAtStart = 0; // to tell whether this round set a new best
 const els = new Map<number, HTMLDivElement>();
+let drag: Drag | null = null; // the press in progress: one pointer at a time (issue #38)
+let focusPos: Pos = { row: 0, col: 0 }; // the board's one tab stop (roving tabindex)
+let keyboardMode = false; // the last input was the keyboard: keep focus on the board
+let announcedScore = 0; // what the score live region last said
+
+/** True while a swap/cascade runs, time is up or the game is paused. */
+const blocked = (): boolean => inputBlocked({ busy, timeUp, paused });
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const storage = () => window.localStorage;
+
+// ---- Settings ----
+// Created before anything that reads `settings`, so no function can run ahead of it.
+const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!;
+
+installStandaloneZoomGuards();
+installGemDefs();
+const settings = initSettings({
+  onOpenChange(open) {
+    if (open) clock.hold('settings', performance.now());
+    else clock.release('settings', performance.now());
+    updateClock();
+    // The round may have ended behind the modal, where focus() can't reach.
+    if (!open && !gameOverEl.hidden) playAgainBtn.focus();
+    else if (!open && paused) resumeBtn.focus();
+  },
+  // A new limit applies to the next game, or right away if this one hasn't started.
+  // A daily is always 3 minutes: the limit waits for the next free-play game.
+  onTimeLimitChange(minutes) {
+    if (mode === 'free' && !clock.isStarted && !timeUp) {
+      clock.reset(minutes * 60_000);
+      setRoundLimit(minutes);
+      updateClock();
+    }
+  },
+  // Diagonal matches: the next game, or a fresh board right away if this one hasn't started.
+  // A daily's twist decides diagonal matches, so the setting waits for free play.
+  onDiagonalChange() {
+    if (mode === 'free' && !clock.isStarted && !timeUp && !busy) newGame('free');
+  },
+  // Redraw every gem on the board in the new style; positions and state are unchanged.
+  onGemStyleChange(style) {
+    for (const el of els.values()) {
+      // Popping gems are about to be removed; redrawing would restart their pop animation.
+      if (!el.classList.contains('pop')) drawGem(el, undefined, style);
+    }
+  },
+  // Static text is already translated; refresh what main.ts writes itself.
+  onLanguageChange() {
+    syncPauseButton();
+    setScore(score);
+    for (const el of els.values()) labelGem(el);
+    if (!gameOverEl.hidden) {
+      finalScoreEl.textContent = score.toLocaleString(settings.language);
+      fillDailyCard();
+    }
+  },
+});
 
 /** The match rules of this round: diagonal matches on or off (issue #30). */
 const matchOpts = (): MatchOptions => ({ diagonal: roundDiagonal });
@@ -158,6 +219,9 @@ let animalCast: AnimalCast = DEFAULT_CAST;
 function createGemEl(gem: Gem, row: number, col: number): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'gem';
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-pressed', 'false');
+  el.tabIndex = -1;
   el.dataset.id = String(gem.id);
   el.dataset.type = String(gem.type);
   drawGem(el, gem);
@@ -182,15 +246,24 @@ function drawGem(el: HTMLDivElement, mark: GemMark = markOf(el), style = setting
   if (mark.special === 'line' && mark.dir) el.dataset.dir = mark.dir;
   else delete el.dataset.dir;
   el.innerHTML = gemSvg(Number(el.dataset.type), style, animalCast, mark);
+  labelGem(el, style);
+}
+
+/** The gem's accessible name: what it is, its special kind and where it is (issue #38). */
+function labelGem(el: HTMLDivElement, style = settings.gemStyle): void {
+  if (el.dataset.row === undefined) return; // not placed yet; place() labels it
+  const name = gemName(settings.language, Number(el.dataset.type), style, animalCast);
+  el.setAttribute('aria-label', gemLabel(settings.language, name, markOf(el), Number(el.dataset.row), Number(el.dataset.col)));
 }
 
 function place(el: HTMLDivElement, row: number, col: number): void {
   const prevRow = Number(el.dataset.row ?? row);
   const drop = Math.max(0, row - prevRow);
-  el.style.transitionDuration = drop > 0 ? `${FALL_BASE_MS + drop * FALL_PER_ROW_MS}ms` : '';
+  el.style.transitionDuration = drop > 0 ? `${motion.fallBaseMs + drop * motion.fallPerRowMs}ms` : '';
   el.dataset.row = String(row);
   el.dataset.col = String(col);
   el.style.transform = `translate(${col * 100}%, ${row * 100}%)`;
+  labelGem(el);
 }
 
 /** Moves every gem element to its grid position (CSS transitions animate it). */
@@ -201,6 +274,7 @@ function render(): void {
       if (!gem) continue;
       const el = els.get(gem.id) ?? createGemEl(gem, r, c);
       if (el.dataset.row !== String(r) || el.dataset.col !== String(c)) place(el, r, c);
+      el.tabIndex = r === focusPos.row && c === focusPos.col ? 0 : -1;
     }
   }
 }
@@ -211,7 +285,7 @@ function addSpawns(spawns: Spawn[]): void {
 }
 
 function rebuildBoard(): void {
-  boardEl.querySelectorAll('.gem, .blast, .beam').forEach((el) => el.remove());
+  boardEl.querySelectorAll('.gem, .blast, .beam, .float').forEach((el) => el.remove());
   els.clear();
   render();
 }
@@ -219,6 +293,13 @@ function rebuildBoard(): void {
 function elAt(p: Pos): HTMLDivElement | undefined {
   const gem = grid[p.row]?.[p.col];
   return gem ? els.get(gem.id) : undefined;
+}
+
+/** Tells screen readers the score once per move, politely, apart from the callout toast. */
+function announceScore(): void {
+  if (score === announcedScore) return;
+  announcedScore = score;
+  scoreLiveEl.textContent = t(settings.language, 'scoreAnnounce', { n: score.toLocaleString(settings.language) });
 }
 
 function setScore(value: number): void {
@@ -331,10 +412,15 @@ function floatPoints(cells: Pos[], points: number, type: number): void {
 }
 
 // ---- Selection & hints ----
+function setSelectedEl(el: HTMLDivElement | undefined, on: boolean): void {
+  el?.classList.toggle('selected', on);
+  el?.setAttribute('aria-pressed', String(on));
+}
+
 function select(p: Pos | null): void {
-  if (selected) elAt(selected)?.classList.remove('selected');
+  if (selected) setSelectedEl(elAt(selected), false);
   selected = p;
-  if (selected) elAt(selected)?.classList.add('selected');
+  if (selected) setSelectedEl(elAt(selected), true);
 }
 
 function clearHint(): void {
@@ -342,23 +428,35 @@ function clearHint(): void {
 }
 
 function showHint(): void {
-  if (busy || timeUp || paused) return;
+  if (blocked()) return;
   clearHint();
   const move = findMove(grid, matchOpts());
   if (!move) return;
   for (const p of move) elAt(p)?.classList.add('hint');
 }
 
-function resetIdle(): void {
-  clearHint();
+/** Drops any hint and stops the idle timer that would show the next one. */
+function clearIdle(): void {
   clearTimeout(hintTimer);
+  clearHint();
+}
+
+/** Drops the selection, the press in progress and the hint: round over, paused, or a new game. */
+function clearInteraction(): void {
+  select(null);
+  drag = null;
+  clearIdle();
+}
+
+function resetIdle(): void {
+  clearIdle();
   hintTimer = window.setTimeout(showHint, HINT_DELAY_MS);
 }
 
 // ---- Game flow ----
 async function trySwap(a: Pos, b: Pos): Promise<void> {
   updateClock(); // the tick may lag the clock by up to TICK_MS
-  if (busy || timeUp || paused) return;
+  if (blocked()) return;
   busy = true;
   const token = gameToken;
   clock.start(performance.now());
@@ -368,7 +466,7 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
 
   swap(grid, a, b);
   render();
-  await wait(SWAP_MS);
+  await wait(motion.swapMs);
   if (token !== gameToken) return;
 
   if (findRuns(grid, matchOpts()).length === 0) {
@@ -377,7 +475,7 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
     render();
     elAt(a)?.classList.add('nope');
     elAt(b)?.classList.add('nope');
-    await wait(SWAP_MS);
+    await wait(motion.swapMs);
     if (token !== gameToken) return;
     elAt(a)?.classList.remove('nope');
     elAt(b)?.classList.remove('nope');
@@ -399,6 +497,9 @@ async function trySwap(a: Pos, b: Pos): Promise<void> {
 /** Unblocks input after a move, or ends the round if time ran out during it. */
 function finishMove(): void {
   busy = false;
+  announceScore();
+  // A keyboard player's focused gem may have been replaced during the cascade.
+  if (keyboardMode) elAt(focusPos)?.focus({ preventScroll: true });
   if (timeUp) showGameOver();
   else if (!paused) resetIdle();
 }
@@ -428,24 +529,21 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
       drawGem(el, m);
       el.classList.add('special-made');
       // A timer, not animationend: reduced motion turns the animation off.
-      setTimeout(() => el.classList.remove('special-made'), POP_MS);
+      setTimeout(() => el.classList.remove('special-made'), motion.popMs);
     }
 
     // Beamed gems pop as the beam's front reaches them (issue #32): the strip
-    // (1.5 board widths each way) grows over 75% of POP_MS.
-    const reach = reducedMotion ? new Map<string, number>() : beamReach(grid, plan.fired);
-    const msPerCell = (POP_MS * 0.75) / (1.5 * colsOf(grid));
-    let lastPop = 0;
+    // (1.5 board widths each way) grows over 75% of motion.popMs.
+    const reach = motion.reduced ? new Map<string, number>() : beamReach(grid, plan.fired);
+    const { delays, lastPop } = popDelays(cells, reach, msPerCell(motion.popMs, colsOf(grid)));
     const popping: HTMLDivElement[] = [];
-    for (const p of cells) {
+    cells.forEach((p, i) => {
       const el = elAt(p);
-      if (!el) continue;
-      const delay = Math.round((reach.get(`${p.row},${p.col}`) ?? 0) * msPerCell);
-      el.style.setProperty('--pop-delay', `${delay}ms`);
-      lastPop = Math.max(lastPop, delay);
+      if (!el) return;
+      el.style.setProperty('--pop-delay', `${delays[i]}ms`);
       el.classList.add('pop');
       popping.push(el);
-    }
+    });
     floatPoints(runs.flat(), points, type);
     const bonus = timeUp ? 0 : bonusSeconds(score, score + points);
     setScore(score + points);
@@ -461,10 +559,10 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
     const callout = stepCallout(cascade, plan.made, granted);
     if (callout) toast(calloutContent(callout), calloutMs(callout.tier));
 
-    // A blast (and, under reduced motion, a beam's flash) runs BLAST_MS; a beam's
+    // A blast (and, under reduced motion, a beam's flash) runs motion.blastMs; a beam's
     // sweep takes one pop, and its farthest gem pops lastPop ms in.
-    const flashing = plan.detonated.length > 0 || (reducedMotion && plan.fired.length > 0);
-    await wait(Math.max(POP_MS + lastPop, flashing ? BLAST_MS : 0));
+    const flashing = plan.detonated.length > 0 || (motion.reduced && plan.fired.length > 0);
+    await wait(stepWaitMs(motion.popMs, lastPop, flashing, motion.blastMs));
     if (token !== gameToken) return false;
 
     for (const el of popping) {
@@ -475,7 +573,7 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
     const spawns = collapse(grid, roundRng, roundBombChance);
     addSpawns(spawns);
     render();
-    await wait(FALL_BASE_MS + rowsOf(grid) * FALL_PER_ROW_MS);
+    await wait(motion.fallBaseMs + rowsOf(grid) * motion.fallPerRowMs);
     if (token !== gameToken) return false;
     cascade++;
   }
@@ -491,10 +589,12 @@ async function resolveCascades(token: number, swapped: Pos[]): Promise<boolean> 
     toast(t(settings.language, 'noMoves'), 1400);
     await wait(700);
     if (token !== gameToken) return false;
-    shuffle(grid, roundRng, matchOpts());
+    // false: it had to make a new board, whose gems have no elements yet (issue #38).
+    const kept = shuffle(grid, roundRng, matchOpts());
     boardEl.classList.add('shuffling');
-    render();
-    await wait(SWAP_MS * 2);
+    if (kept) render();
+    else rebuildBoard();
+    await wait(motion.swapMs * 2);
     boardEl.classList.remove('shuffling');
   }
   return totalShown;
@@ -519,16 +619,13 @@ function flashTimeBonus(): void {
 function endRound(): void {
   timeUp = true;
   syncPauseButton();
-  select(null);
-  drag = null;
-  clearTimeout(hintTimer);
-  clearHint();
+  clearInteraction();
   if (!busy) showGameOver();
 }
 
 function showGameOver(): void {
-  clearTimeout(hintTimer);
-  clearHint();
+  clearIdle();
+  announceScore();
   finalScoreEl.textContent = score.toLocaleString(settings.language);
   newBestEl.hidden = !(score > bestAtStart && score > 0);
   const daily = mode === 'daily';
@@ -600,8 +697,9 @@ function newGame(next: Mode = 'free'): void {
   gameToken++;
   busy = false;
   timeUp = false;
-  selected = null;
-  drag = null;
+  clearInteraction();
+  announcedScore = 0;
+  scoreLiveEl.textContent = '';
   gameOverEl.hidden = true;
   mode = next;
   const { rows, cols } = currentLayout();
@@ -659,10 +757,7 @@ function setPaused(on: boolean): void {
   paused = on;
   if (on) {
     clock.hold('paused', performance.now());
-    select(null);
-    drag = null;
-    clearTimeout(hintTimer);
-    clearHint();
+    clearInteraction();
   } else {
     clock.release('paused', performance.now());
   }
@@ -686,51 +781,86 @@ function resume(): void {
   pauseBtn.focus();
 }
 
-// ---- Input: tap-to-select or swipe a gem ----
-let drag: { pos: Pos; x: number; y: number } | null = null;
+// ---- Input: tap-to-select, swipe, or the keyboard ----
+// Rules live in input.ts. One pointer owns a press at a time, and only the primary
+// button starts one (issue #38).
+function gemEl(target: EventTarget | null): HTMLDivElement | null {
+  return target instanceof Element ? target.closest<HTMLDivElement>('.gem') : null;
+}
+
+const cellOf = (el: HTMLDivElement): Pos => ({ row: Number(el.dataset.row), col: Number(el.dataset.col) });
 
 function posFromEvent(e: PointerEvent): Pos | null {
-  const el = (e.target as Element).closest<HTMLDivElement>('.gem');
+  const el = gemEl(e.target);
   if (!el || el.classList.contains('pop')) return null;
-  return { row: Number(el.dataset.row), col: Number(el.dataset.col) };
+  return cellOf(el);
+}
+
+/** Picks a gem: selects it, unselects it, or swaps it with the adjacent selected one. */
+function choose(pos: Pos): void {
+  resetIdle();
+  const action = pickAction(selected, pos);
+  if (action.kind === 'deselect') select(null);
+  else if (action.kind === 'swap') void trySwap(action.from, action.to);
+  else select(action.pos);
+}
+
+function focusCell(p: Pos): void {
+  focusPos = p;
+  render(); // moves the roving tab stop
+  elAt(p)?.focus({ preventScroll: true });
 }
 
 boardEl.addEventListener('pointerdown', (e) => {
   const pos = posFromEvent(e);
-  if (!pos || busy || timeUp || paused) return;
-  drag = { pos, x: e.clientX, y: e.clientY };
+  if (!pos || blocked()) return;
+  const next = beginDrag(drag, e, pos);
+  if (!next || next === drag) return;
+  drag = next;
+  keyboardMode = false;
+  focusPos = pos;
   boardEl.setPointerCapture(e.pointerId);
 });
 
 boardEl.addEventListener('pointermove', (e) => {
-  if (!drag) return;
-  const dx = e.clientX - drag.x;
-  const dy = e.clientY - drag.y;
+  if (!ownsDrag(drag, e.pointerId)) return;
   const threshold = boardEl.clientWidth / colsOf(grid) / 3;
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
+  const to = swipeTarget(drag.pos, e.clientX - drag.x, e.clientY - drag.y, threshold, rowsOf(grid), colsOf(grid));
+  if (to === undefined) return;
   const from = drag.pos;
-  const to =
-    Math.abs(dx) > Math.abs(dy)
-      ? { row: from.row, col: from.col + Math.sign(dx) }
-      : { row: from.row + Math.sign(dy), col: from.col };
   drag = null;
-  if (to.row >= 0 && to.row < rowsOf(grid) && to.col >= 0 && to.col < colsOf(grid)) {
-    void trySwap(from, to);
-  }
+  if (to) void trySwap(from, to);
 });
 
-boardEl.addEventListener('pointerup', () => {
-  if (!drag) return; // a swipe already handled it
+boardEl.addEventListener('pointerup', (e) => {
+  if (!ownsDrag(drag, e.pointerId)) return; // a swipe already handled it, or another pointer
   const pos = drag.pos;
   drag = null;
-  if (busy || timeUp || paused) return;
-  resetIdle();
-  if (selected && selected.row === pos.row && selected.col === pos.col) select(null);
-  else if (selected && isAdjacent(selected, pos)) void trySwap(selected, pos);
-  else select(pos);
+  if (blocked()) return;
+  choose(pos);
 });
 
-boardEl.addEventListener('pointercancel', () => (drag = null));
+boardEl.addEventListener('pointercancel', (e) => {
+  if (ownsDrag(drag, e.pointerId)) drag = null;
+});
+
+boardEl.addEventListener('keydown', (e) => {
+  const el = gemEl(e.target);
+  if (!el || e.altKey || e.ctrlKey || e.metaKey) return;
+  const from = cellOf(el);
+  const next = moveFocus(from, e.key, rowsOf(grid), colsOf(grid));
+  if (next) {
+    e.preventDefault();
+    keyboardMode = true;
+    focusCell(next);
+  } else if (isActivateKey(e.key)) {
+    e.preventDefault(); // Space would scroll the page
+    keyboardMode = true;
+    if (!blocked() && !el.classList.contains('pop')) choose(from);
+  } else if (e.key === 'Escape' && selected) {
+    select(null);
+  }
+});
 
 hintBtn.addEventListener('click', showHint);
 newGameBtn.addEventListener('click', () => newGame('free'));
@@ -761,50 +891,6 @@ window.addEventListener('pagehide', () => {
   if (shouldAutoPause(roundState(), true)) pause();
 });
 
-const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!;
-
-installStandaloneZoomGuards();
-installGemDefs();
-const settings = initSettings({
-  onOpenChange(open) {
-    if (open) clock.hold('settings', performance.now());
-    else clock.release('settings', performance.now());
-    updateClock();
-    // The round may have ended behind the modal, where focus() can't reach.
-    if (!open && !gameOverEl.hidden) playAgainBtn.focus();
-    else if (!open && paused) resumeBtn.focus();
-  },
-  // A new limit applies to the next game, or right away if this one hasn't started.
-  // A daily is always 3 minutes: the limit waits for the next free-play game.
-  onTimeLimitChange(minutes) {
-    if (mode === 'free' && !clock.isStarted && !timeUp) {
-      clock.reset(minutes * 60_000);
-      setRoundLimit(minutes);
-      updateClock();
-    }
-  },
-  // Diagonal matches: the next game, or a fresh board right away if this one hasn't started.
-  // A daily's twist decides diagonal matches, so the setting waits for free play.
-  onDiagonalChange() {
-    if (mode === 'free' && !clock.isStarted && !timeUp && !busy) newGame('free');
-  },
-  // Redraw every gem on the board in the new style; positions and state are unchanged.
-  onGemStyleChange(style) {
-    for (const el of els.values()) {
-      // Popping gems are about to be removed; redrawing would restart their pop animation.
-      if (!el.classList.contains('pop')) drawGem(el, undefined, style);
-    }
-  },
-  // Static text is already translated; refresh what main.ts writes itself.
-  onLanguageChange() {
-    syncPauseButton();
-    setScore(score);
-    if (!gameOverEl.hidden) {
-      finalScoreEl.textContent = score.toLocaleString(settings.language);
-      fillDailyCard();
-    }
-  },
-});
 if (document.hidden) clock.hold('hidden', performance.now());
 setInterval(updateClock, TICK_MS);
 setInterval(syncDailyButton, 60_000); // a new day brings the dot back, even with the tab left open
