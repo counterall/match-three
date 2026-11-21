@@ -69,10 +69,15 @@ describe('board markup and wiring (issue #38)', () => {
     expect(css).toMatch(/\.gem:focus-visible/);
   });
 
+  it('resets the keyboard tab stop for a new board shape', () => {
+    expect(mainSrc).toMatch(/focusPos = \{ row: 0, col: 0 \};[^\n]*\n\s*let minutes/);
+  });
+
   it('follows reduced motion live and accepts only the primary pointer', () => {
     expect(mainSrc).toMatch(/reducedQuery\.addEventListener\('change'/);
     expect(mainSrc).toMatch(/beginDrag\(/);
     expect(mainSrc).toMatch(/ownsDrag\(/);
     expect(mainSrc).not.toMatch(/^const reducedMotion = /m);
+    expect(mainSrc).toContain("'lostpointercapture'");
   });
 });

@@ -703,6 +703,7 @@ function newGame(next: Mode = 'free'): void {
   gameOverEl.hidden = true;
   mode = next;
   const { rows, cols } = currentLayout();
+  focusPos = { row: 0, col: 0 }; // the new board may be smaller than the focused cell
   let minutes: TimeLimit = settings.timeLimit;
   let diagonal = settings.diagonal;
   if (mode === 'daily') {
@@ -819,6 +820,7 @@ boardEl.addEventListener('pointerdown', (e) => {
   drag = next;
   keyboardMode = false;
   focusPos = pos;
+  render(); // moves the roving tab stop
   boardEl.setPointerCapture(e.pointerId);
 });
 
@@ -840,9 +842,12 @@ boardEl.addEventListener('pointerup', (e) => {
   choose(pos);
 });
 
-boardEl.addEventListener('pointercancel', (e) => {
-  if (ownsDrag(drag, e.pointerId)) drag = null;
-});
+// A press that loses its pointer without pointerup/pointercancel must not block later presses.
+for (const type of ['pointercancel', 'lostpointercapture']) {
+  boardEl.addEventListener(type, (e) => {
+    if (ownsDrag(drag, (e as PointerEvent).pointerId)) drag = null;
+  });
+}
 
 boardEl.addEventListener('keydown', (e) => {
   const el = gemEl(e.target);
