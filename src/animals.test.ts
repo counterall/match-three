@@ -20,16 +20,17 @@ describe('animal pool', () => {
       'Frog',
       'Parrot',
       'Black Shiba',
-      'Penguin',
+      'Elephant',
       'Bear',
       'Tiger',
     ]);
     expect(ANIMAL_POOL).toHaveLength(GEM_TYPES + 1);
   });
 
-  it('keeps the golden retriever as a spare, outside the pool (issue #20)', () => {
-    expect(names(SPARE_ANIMALS)).toEqual(['Golden retriever']);
+  it('keeps the golden retriever and the penguin as spares, outside the pool (issues #20, #40)', () => {
+    expect(names(SPARE_ANIMALS)).toEqual(['Golden retriever', 'Penguin']);
     expect(names(ANIMAL_POOL)).not.toContain('Golden retriever');
+    expect(names(ANIMAL_POOL)).not.toContain('Penguin');
     expect(names(ANIMAL_POOL)).not.toContain('Shiba');
   });
 

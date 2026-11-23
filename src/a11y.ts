@@ -17,14 +17,14 @@ export const SHAPE_NAME_KEYS: readonly MessageKey[] = [
   'shapeHeart',
 ];
 
-/** One name per entry of ANIMAL_POOL, in its order. */
+/** One name per entry of ANIMAL_POOL, in its order (keep in step when the pool changes; tested). */
 export const ANIMAL_NAME_KEYS: readonly MessageKey[] = [
   'animalTerrier',
   'animalHusky',
   'animalFrog',
   'animalParrot',
   'animalShiba',
-  'animalPenguin',
+  'animalElephant',
   'animalBear',
   'animalTiger',
 ];

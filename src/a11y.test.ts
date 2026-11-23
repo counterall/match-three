@@ -13,6 +13,14 @@ describe('gem names (issue #38)', () => {
     expect(ANIMAL_NAME_KEYS).toHaveLength(ANIMAL_POOL.length);
   });
 
+  it('names each pool animal after its own drawing, in ANIMAL_POOL order (issue #40)', () => {
+    ANIMAL_NAME_KEYS.forEach((k, i) => {
+      expect(ANIMAL_POOL[i].name.toLowerCase()).toContain(t('en', k).toLowerCase());
+    });
+    expect(gemName('en', 5, 'animals', DEFAULT_CAST)).toBe('Elephant');
+    expect(gemName('zh-CN', 5, 'animals', DEFAULT_CAST)).toBe('大象');
+  });
+
   it('names are non-empty and distinct in every language', () => {
     for (const { id } of LANGUAGES) {
       for (const keys of [SHAPE_NAME_KEYS, ANIMAL_NAME_KEYS]) {
