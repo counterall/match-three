@@ -113,6 +113,31 @@ const PENGUIN: Animal = {
 };
 
 
+// Replaced the penguin in the pool (issue #40). No tusks: ivory read as vague on Pastel.
+const ELE_SKIN = ['#a7b2bd', '#8f9ba7'] as const;
+const ELE_EAR = ['#97a3af', '#808c98'] as const;
+const ELE_PINK = ['#eab4b4', '#d79e9f'] as const;
+const ELE_LINES = ['#8b97a3', '#77838f'] as const;
+const ELEPHANT: Animal = {
+  name: 'Elephant',
+  parts: [
+    [P('M32 20 C14 10 2 26 3 46 C4 64 16 74 32 68 Z'), ...ELE_EAR],
+    [P('M68 20 C86 10 98 26 97 46 C96 64 84 74 68 68 Z'), ...ELE_EAR],
+    [P('M30 27 C18 21 10 32 11 46 C12 59 20 64 30 61 Z'), ...ELE_PINK],
+    [P('M70 27 C82 21 90 32 89 46 C88 59 80 64 70 61 Z'), ...ELE_PINK],
+    [P('M50 8 C68 8 77 22 77 40 C77 55 69 64 60 66 L40 66 C31 64 23 55 23 40 C23 22 32 8 50 8 Z'), ...ELE_SKIN],
+    // Trunk: symmetric about x=50 (43..57 mid-way, 45..55 at the tip), so its lit and
+    // shaded halves match; only the curl turns right.
+    [P('M41 50 L59 50 Q57 70 55 82 Q55 88 60 88 Q64 88 64 84 L69 85 Q68 94 59 94 Q46 94 45 84 Q43 70 41 50 Z'), ...ELE_SKIN],
+    [R(44, 66, 12, 1.8, 0.9), ...ELE_LINES],
+    [R(45, 72, 10, 1.8, 0.9), ...ELE_LINES],
+    [R(46, 78, 8, 1.8, 0.9), ...ELE_LINES],
+    [R(34, 38, 7, 7), ...INK],
+    [R(59, 38, 7, 7), ...INK],
+  ],
+};
+
+
 const BEAR: Animal = {
   name: 'Bear',
   parts: [
@@ -216,10 +241,13 @@ const TIGER: Animal = {
  * Every animal that can appear on the board: one more than GEM_TYPES, so each game
  * draws GEM_TYPES of them (drawCast) and one sits out.
  */
-export const ANIMAL_POOL: readonly Animal[] = [TERRIER, HUSKY, FROG, PARROT, BLACK_SHIBA, PENGUIN, BEAR, TIGER];
+export const ANIMAL_POOL: readonly Animal[] = [TERRIER, HUSKY, FROG, PARROT, BLACK_SHIBA, ELEPHANT, BEAR, TIGER];
 
-/** Finished drawings kept for later but not used on the board (issue #20). */
-export const SPARE_ANIMALS: readonly Animal[] = [GOLDEN_RETRIEVER];
+/**
+ * Finished drawings kept for later but not used on the board: the golden retriever
+ * (issue #20) and the penguin, which the elephant replaced (issue #40).
+ */
+export const SPARE_ANIMALS: readonly Animal[] = [GOLDEN_RETRIEVER, PENGUIN];
 
 /** Which pool animal (index into ANIMAL_POOL) draws each gem type; index = gem type. */
 export type AnimalCast = readonly number[];
